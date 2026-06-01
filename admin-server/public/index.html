@@ -1,0 +1,103 @@
+﻿<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MohamyPhone Admin</title>
+  <style>
+    body { font-family: Tahoma, sans-serif; margin: 0; background: #f4f6fa; color: #1a1f36; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); padding: 16px; margin-bottom: 16px; }
+    input, select, button, textarea { padding: 10px; border-radius: 8px; border: 1px solid #ccd3df; font-size: 14px; }
+    button { background: #17355b; color: white; border: 0; cursor: pointer; }
+    button.secondary { background: #d9dee8; color: #1a1f36; }
+    button.warn { background: #8a1f1f; }
+    button.danger { background: #b91c1c; }
+    .grid { display: grid; gap: 10px; }
+    .g2 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #eef2f7; padding: 8px; text-align: right; font-size: 13px; vertical-align: top; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .pill { padding: 4px 8px; border-radius: 999px; font-size: 12px; display: inline-block; }
+    .active { background: #d7f5e2; color: #14532d; }
+    .blocked { background: #ffe1e1; color: #7f1d1d; }
+    .inactive { background: #eceff4; color: #334155; }
+    #panel { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="loginCard">
+      <h2>تسجيل دخول الأدمن</h2>
+      <div class="grid g2">
+        <input id="adminUser" placeholder="اسم مستخدم الأدمن" autocomplete="username" />
+        <input id="adminPass" type="password" placeholder="كلمة المرور" autocomplete="current-password" />
+      </div>
+      <div class="row" style="margin-top: 10px;">
+        <button id="loginBtn">دخول</button>
+        <span class="muted">في الإنتاج: غيّر بيانات الأدمن الافتراضية عبر متغيرات البيئة قبل أول تشغيل.</span>
+      </div>
+      <div id="loginMsg" class="muted" style="margin-top:8px;"></div>
+    </div>
+
+    <div id="panel">
+      <div class="card">
+        <div class="row" style="justify-content: space-between;">
+          <h2 style="margin:0;">لوحة إدارة العملاء والتراخيص</h2>
+          <button class="secondary" id="refreshBtn">تحديث</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>إضافة عميل جديد (محامٍ)</h3>
+        <div class="grid g2">
+          <input id="name" placeholder="الاسم" />
+          <input id="phone" placeholder="الهاتف" />
+          <input id="username" placeholder="username" />
+          <input id="password" type="password" placeholder="كلمة المرور" />
+          <select id="status">
+            <option value="active">active</option>
+            <option value="inactive">inactive</option>
+            <option value="blocked">blocked</option>
+          </select>
+          <select id="licenseStatus">
+            <option value="active">license: active</option>
+            <option value="inactive">license: inactive</option>
+            <option value="blocked">license: blocked</option>
+          </select>
+          <input id="maxDevices" type="number" value="1" min="1" placeholder="max devices" />
+          <input id="expiresAt" placeholder="expires_at (YYYY-MM-DD) اختياري" />
+          <textarea id="notes" placeholder="اسم المكتب / ملاحظات"></textarea>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button id="addLawyerBtn">إضافة</button>
+          <div id="addMsg" class="muted"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>العملاء الحاليون</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>الاسم</th>
+              <th>username</th>
+              <th>الحالة</th>
+              <th>المكتب/ملاحظات</th>
+              <th>الترخيص</th>
+              <th>الأجهزة</th>
+              <th>آخر تحقق</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="lawyersBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
