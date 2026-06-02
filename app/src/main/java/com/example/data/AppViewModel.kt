@@ -144,6 +144,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             globalErrorMsg = null
             globalSuccessMsg = null
+            val targetUsername = usernameInput.trim()
+            val existingLicense = repository.licenseDao.getLicenseDirect()
+            if (existingLicense != null && existingLicense.username != targetUsername) {
+                repository.clearLocalWorkspace()
+                repository.clearLicenseSessionCache()
+                activeClient = null
+                activeCase = null
+            }
             repository.activateLicense(usernameInput, LicenseCodeInput)
                 .onSuccess {
                     globalSuccessMsg = "تم تفعيل الترخيص بنجاح وارتباطه بجهازك!"
@@ -157,8 +165,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         viewModelScope.launch {
-            repository.licenseDao.deleteLicense()
+            repository.clearLocalWorkspace()
             repository.clearLicenseSessionCache()
+            activeClient = null
+            activeCase = null
+            searchEngineQuery = ""
+            usernameInput = ""
+            LicenseCodeInput = ""
+            globalSuccessMsg = "تم تسجيل الخروج ومسح بيانات الحساب المحلي من هذا الجهاز."
             navigateTo(Screen.Activation)
         }
     }

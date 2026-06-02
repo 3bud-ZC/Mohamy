@@ -221,6 +221,10 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         return baseDir
     }
 
+    private fun getWorkspaceFilesRoot(): File {
+        return File(context.filesDir, "mohamy_phone/files")
+    }
+
     suspend fun saveFileToPrivateStorage(caseId: Int, fileName: String, fileUri: Uri): File {
         return withContext(Dispatchers.IO) {
             val destinationDir = getCaseFilesDirectory(caseId)
@@ -300,6 +304,13 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         if (!dir.exists()) return
         dir.walkBottomUp().forEach {
             if (it != dir) it.delete()
+        }
+    }
+
+    suspend fun clearLocalWorkspace() {
+        withContext(Dispatchers.IO) {
+            db.clearAllTables()
+            deleteDirectoryContents(getWorkspaceFilesRoot())
         }
     }
 
