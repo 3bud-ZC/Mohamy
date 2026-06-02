@@ -2,6 +2,40 @@
 let adminUsername = '';
 let cachedLawyers = [];
 let filteredLawyers = [];
+let selectedPlanId = '';
+
+const planPresets = {
+  monthly_single: {
+    label: 'باقة شهرية فردية',
+    days: 30,
+    maxDevices: 1,
+    notes: 'باقة شهرية - جهاز واحد',
+  },
+  quarterly_single: {
+    label: 'باقة ربع سنوية',
+    days: 90,
+    maxDevices: 1,
+    notes: 'باقة 3 شهور - جهاز واحد',
+  },
+  yearly_single: {
+    label: 'باقة سنوية فردية',
+    days: 365,
+    maxDevices: 1,
+    notes: 'باقة سنوية - جهاز واحد',
+  },
+  yearly_office: {
+    label: 'باقة سنوية مكتبية',
+    days: 365,
+    maxDevices: 3,
+    notes: 'باقة سنوية مكتبية - 3 أجهزة',
+  },
+  lifetime_single: {
+    label: 'باقة مدى الحياة',
+    days: null,
+    maxDevices: 1,
+    notes: 'ترخيص دائم - جهاز واحد',
+  },
+};
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -22,6 +56,44 @@ function showMsg(id, type, text) {
   }
   el.className = type === 'err' ? 'msg err' : 'msg ok';
   el.textContent = text;
+}
+
+function formatDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function futureDate(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return formatDateInput(date);
+}
+
+function setActivePreset(planId) {
+  selectedPlanId = planId;
+  document.querySelectorAll('[data-plan]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.plan === planId);
+  });
+}
+
+function applyPlanPreset(planId) {
+  const preset = planPresets[planId];
+  if (!preset) return;
+
+  document.getElementById('status').value = 'active';
+  document.getElementById('licenseStatus').value = 'active';
+  document.getElementById('maxDevices').value = String(preset.maxDevices);
+  document.getElementById('expiresAt').value = preset.days === null ? '' : futureDate(preset.days);
+
+  const notesField = document.getElementById('notes');
+  if (!notesField.value.trim()) {
+    notesField.value = preset.notes;
+  }
+
+  setActivePreset(planId);
+  showMsg('addMsg', 'ok', `تم تجهيز ${preset.label} ويمكنك الآن إدخال بيانات العميل ثم إنشاء الحساب.`);
 }
 
 async function api(path, options = {}) {
@@ -369,6 +441,7 @@ async function addLawyer() {
     document.getElementById('status').value = 'active';
     document.getElementById('licenseStatus').value = 'active';
     document.getElementById('maxDevices').value = '1';
+    setActivePreset('');
 
     await loadLawyers();
   } catch (err) {
@@ -394,6 +467,9 @@ document.getElementById('searchInput').addEventListener('input', applySearch);
 document.getElementById('clearSearchBtn').addEventListener('click', () => {
   document.getElementById('searchInput').value = '';
   applySearch();
+});
+document.querySelectorAll('[data-plan]').forEach((button) => {
+  button.addEventListener('click', () => applyPlanPreset(button.dataset.plan));
 });
 
 document.getElementById('saveLawyerBtn').addEventListener('click', saveLawyer);

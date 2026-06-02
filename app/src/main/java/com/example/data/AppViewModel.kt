@@ -119,7 +119,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             lastBackupAtMillis = prefs.getLong("last_backup_at", 0L).takeIf { it > 0L }
             lastBackupSizeBytes = prefs.getLong("last_backup_size", 0L).takeIf { it > 0L }
-            licenseServerUrlInput = prefs.getString("license_server_url", BuildConfig.LICENSE_SERVER_URL) ?: BuildConfig.LICENSE_SERVER_URL
+            licenseServerUrlInput = repository.migrateLicenseServerUrlIfNeeded()
             // Check first-run templates seeding
             repository.seedTemplatesIfEmpty()
             
@@ -164,7 +164,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveLicenseServerUrl(url: String) {
-        val normalized = url.trim().trimEnd('/')
+        val normalized = repository.normalizeLicenseServerUrl(url)
         if (normalized.isBlank()) {
             globalErrorMsg = "يرجى إدخال رابط سيرفر صحيح."
             return

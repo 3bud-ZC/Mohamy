@@ -485,12 +485,31 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         return currentLicense.status
     }
 
-    private fun resolveLicenseServerBaseUrl(): String {
-        return prefs.getString("license_server_url", null)
+    fun normalizeLicenseServerUrl(rawUrl: String?): String {
+        val normalized = rawUrl
             ?.trim()
             ?.trimEnd('/')
             ?.takeIf { it.isNotBlank() }
             ?: BuildConfig.LICENSE_SERVER_URL.trim().trimEnd('/')
+
+        return when (normalized.lowercase(Locale.ROOT)) {
+            "https://license.abud.fun",
+            "http://license.abud.fun" -> "https://mohamy.abud.fun"
+            else -> normalized
+        }
+    }
+
+    fun migrateLicenseServerUrlIfNeeded(): String {
+        val stored = prefs.getString("license_server_url", null)
+        val normalized = normalizeLicenseServerUrl(stored)
+        if (stored.isNullOrBlank() || stored.trim().trimEnd('/') != normalized) {
+            prefs.edit().putString("license_server_url", normalized).apply()
+        }
+        return normalized
+    }
+
+    private fun resolveLicenseServerBaseUrl(): String {
+        return normalizeLicenseServerUrl(prefs.getString("license_server_url", null))
     }
 
     private fun currentDeviceId(): String {
@@ -533,10 +552,31 @@ class Repository(private val db: AppDatabase, private val context: Context) {
 
     private fun parseServerExpiryMillis(expiresAt: String?): Long {
         if (expiresAt.isNullOrBlank()) return System.currentTimeMillis() + (365L * 24L * 60L * 60L * 1000L)
+        val zoneId = java.time.ZoneId.systemDefault()
         return try {
             java.time.Instant.parse(expiresAt).toEpochMilli()
         } catch (_: Exception) {
-            System.currentTimeMillis() + (365L * 24L * 60L * 60L * 1000L)
+            try {
+                java.time.OffsetDateTime.parse(expiresAt).toInstant().toEpochMilli()
+            } catch (_: Exception) {
+                try {
+                    java.time.LocalDateTime.parse(expiresAt)
+                        .atZone(zoneId)
+                        .toInstant()
+                        .toEpochMilli()
+                } catch (_: Exception) {
+                    try {
+                        java.time.LocalDate.parse(expiresAt)
+                            .plusDays(1)
+                            .atStartOfDay(zoneId)
+                            .minusNanos(1)
+                            .toInstant()
+                            .toEpochMilli()
+                    } catch (_: Exception) {
+                        System.currentTimeMillis() + (365L * 24L * 60L * 60L * 1000L)
+                    }
+                }
+            }
         }
     }
 
@@ -569,7 +609,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                             activatedDeviceId = deviceId,
                             activationDate = now,
                             lastCheckDate = now,
-                            expiryDate = parseServerExpiryMillis(responseJson.optString("expires_at", null)),
+                            expiryDate = parseServerExpiryMillis(responseJson.optString("expires_at").takeIf { it.isNotBlank() }),
                             status = "نشط",
                             lawyerName = responseJson.optString("lawyer_name", "الأستاذ المحامي"),
                             officeName = responseJson.optString("office_name", "مكتب المحاماة والخدمات القانونية"),

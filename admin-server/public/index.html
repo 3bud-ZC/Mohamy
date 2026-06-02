@@ -232,6 +232,57 @@
 
     .inline input { max-width: 360px; }
 
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .preset-card {
+      text-align: right;
+      background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      border: 1px solid #d6e4f6;
+      color: #14345b;
+      padding: 14px;
+      border-radius: 14px;
+    }
+
+    .preset-card strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.95rem;
+    }
+
+    .preset-card small {
+      display: block;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .preset-card.active {
+      background: linear-gradient(180deg, #0c3c78 0%, #174f95 100%);
+      border-color: #0c3c78;
+      color: #fff;
+      box-shadow: 0 14px 24px rgba(12, 60, 120, 0.22);
+    }
+
+    .preset-card.active small { color: rgba(255, 255, 255, 0.82); }
+
+    .hint-box {
+      background: #f8fbff;
+      border: 1px dashed #c9d9ef;
+      border-radius: 14px;
+      padding: 12px;
+      color: #24456f;
+      font-size: 0.88rem;
+      line-height: 1.7;
+    }
+
     dialog {
       border: none;
       border-radius: 16px;
@@ -372,13 +423,44 @@
           <div id="addMsg" class="msg"></div>
         </div>
 
-        <div class="card section">
+        <div class="stack">
+          <div class="card section">
           <h2>بحث سريع</h2>
           <div class="inline">
             <input id="searchInput" placeholder="ابحث بالاسم أو username أو الهاتف" />
             <button id="clearSearchBtn" class="btn-secondary" style="max-width:150px;">مسح البحث</button>
           </div>
           <p class="muted" style="margin-top:10px;">إدارة الحالات، تعديل الترخيص، إعادة ضبط الأجهزة وتغيير كلمة المرور متاحة من الجدول بالأسفل.</p>
+          </div>
+
+          <div class="card section">
+            <h2>باقات جاهزة للبيع</h2>
+            <div class="preset-grid">
+              <button type="button" class="preset-card" data-plan="monthly_single">
+                <strong>شهري فردي</strong>
+                <small>30 يوم - جهاز واحد - مناسب للتجربة المدفوعة</small>
+              </button>
+              <button type="button" class="preset-card" data-plan="quarterly_single">
+                <strong>ربع سنوي</strong>
+                <small>90 يوم - جهاز واحد - عميل مستقر</small>
+              </button>
+              <button type="button" class="preset-card" data-plan="yearly_single">
+                <strong>سنوي فردي</strong>
+                <small>365 يوم - جهاز واحد - أفضل باقة فردية</small>
+              </button>
+              <button type="button" class="preset-card" data-plan="yearly_office">
+                <strong>سنوي مكتبي</strong>
+                <small>365 يوم - 3 أجهزة - مناسب للمكاتب</small>
+              </button>
+              <button type="button" class="preset-card" data-plan="lifetime_single">
+                <strong>مدى الحياة</strong>
+                <small>بدون تاريخ انتهاء - جهاز واحد</small>
+              </button>
+            </div>
+            <div class="hint-box" style="margin-top:12px;">
+              اختيار أي باقة يملأ تاريخ الانتهاء وعدد الأجهزة والملاحظات تلقائيًا. يمكنك بعدها تعديل الاسم أو كلمة المرور أو أي بيانات أخرى قبل إنشاء الحساب.
+            </div>
+          </div>
         </div>
       </div>
 

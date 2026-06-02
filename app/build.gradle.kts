@@ -10,7 +10,7 @@ plugins {
 }
 
 val buildTimestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH).format(Date())
-val licenseServerUrl = System.getenv("LICENSE_SERVER_URL")?.trim()?.trimEnd('/')?.ifBlank { null } ?: "https://license.abud.fun"
+val licenseServerUrl = System.getenv("LICENSE_SERVER_URL")?.trim()?.trimEnd('/')?.ifBlank { null } ?: "https://mohamy.abud.fun"
 
 android {
   val releaseKeystorePath = System.getenv("KEYSTORE_PATH")
@@ -31,8 +31,8 @@ android {
     applicationId = "com.aistudio.mohamyphone.lylawar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1.0"
+    versionCode = 3
+    versionName = "1.2.0"
     buildConfigField("String", "BUILD_TIMESTAMP", "\"$buildTimestamp\"")
     buildConfigField("String", "LICENSE_SERVER_URL", "\"$licenseServerUrl\"")
 

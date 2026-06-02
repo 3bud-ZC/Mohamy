@@ -176,6 +176,12 @@ fun SettingsScreen(viewModel: AppViewModel, license: LicenseCache?) {
             label = { Text("رابط سيرفر التراخيص") },
             modifier = Modifier.fillMaxWidth()
         )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "الرابط الافتراضي الموصى به: https://mohamy.abud.fun",
+            fontSize = 12.sp,
+            color = Color.Gray
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = { viewModel.saveLicenseServerUrl(serverUrl) },
