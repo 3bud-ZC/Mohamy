@@ -3,6 +3,7 @@ package com.example.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -111,12 +112,21 @@ fun openCaseFile(context: Context, f: CaseFile) {
     }
 }
 
+tailrec fun Context.findHostActivity(): androidx.activity.ComponentActivity? {
+    return when (this) {
+        is androidx.activity.ComponentActivity -> this
+        is ContextWrapper -> baseContext.findHostActivity()
+        else -> null
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainLayout(viewModel: AppViewModel) {
     // Force RTL direction for Arabic Layout Harmony
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         val context = LocalContext.current
+        val hostActivity = remember(context) { context.findHostActivity() }
         val activeScreen = viewModel.currentScreen
 
         // Observe Room states
@@ -129,6 +139,13 @@ fun MainLayout(viewModel: AppViewModel) {
         val templates by viewModel.allTemplates.collectAsState()
         val generatedDocs by viewModel.allGeneratedDocuments.collectAsState()
         val licenseObj by viewModel.licenseState.collectAsState()
+
+        LaunchedEffect(viewModel.appReloadNonce) {
+            if (viewModel.appReloadNonce > 0) {
+                viewModel.consumeAppReload()
+                hostActivity?.recreate()
+            }
+        }
 
         var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
         var pendingImportName by remember { mutableStateOf("") }

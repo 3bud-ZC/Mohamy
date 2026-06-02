@@ -109,6 +109,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var lastBackupAtMillis by mutableStateOf<Long?>(null)
     var lastBackupSizeBytes by mutableStateOf<Long?>(null)
     var licenseServerUrlInput by mutableStateOf(BuildConfig.LICENSE_SERVER_URL)
+    var appReloadNonce by mutableStateOf(0)
+        private set
 
     // --- License Form Inputs ---
     var usernameInput by mutableStateOf("")
@@ -120,6 +122,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             lastBackupAtMillis = prefs.getLong("last_backup_at", 0L).takeIf { it > 0L }
             lastBackupSizeBytes = prefs.getLong("last_backup_size", 0L).takeIf { it > 0L }
             licenseServerUrlInput = repository.migrateLicenseServerUrlIfNeeded()
+            repository.ensureActiveWorkspaceMarker()
+            repository.consumePendingActivation()?.let {
+                repository.persistActivatedLicense(it)
+                globalSuccessMsg = "تم فتح مساحة الحساب المحلية بنجاح."
+            }
             // Check first-run templates seeding
             repository.seedTemplatesIfEmpty()
             
@@ -145,17 +152,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             globalErrorMsg = null
             globalSuccessMsg = null
             val targetUsername = usernameInput.trim()
-            val existingLicense = repository.licenseDao.getLicenseDirect()
-            if (existingLicense != null && existingLicense.username != targetUsername) {
-                repository.clearLocalWorkspace()
-                repository.clearLicenseSessionCache()
-                activeClient = null
-                activeCase = null
-            }
             repository.activateLicense(usernameInput, LicenseCodeInput)
-                .onSuccess {
-                    globalSuccessMsg = "تم تفعيل الترخيص بنجاح وارتباطه بجهازك!"
-                    navigateTo(Screen.Dashboard)
+                .onSuccess { activation ->
+                    val currentWorkspaceUsername = repository.currentWorkspaceUsername()
+                    if (currentWorkspaceUsername.equals(targetUsername, ignoreCase = true)) {
+                        repository.persistActivatedLicense(activation)
+                        globalSuccessMsg = "تم تفعيل الترخيص بنجاح وارتباطه بجهازك!"
+                        navigateTo(Screen.Dashboard)
+                    } else {
+                        repository.switchToAccountWorkspace(targetUsername)
+                        repository.queuePendingActivation(activation)
+                        activeClient = null
+                        activeCase = null
+                        searchEngineQuery = ""
+                        usernameInput = ""
+                        LicenseCodeInput = ""
+                        requestAppReload()
+                    }
                 }
                 .onFailure {
                     globalErrorMsg = it.message ?: "خطأ تفعيل ترخيص التطبيق غامض."
@@ -165,16 +178,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         viewModelScope.launch {
-            repository.clearLocalWorkspace()
-            repository.clearLicenseSessionCache()
+            repository.archiveActiveWorkspaceAndLogout()
             activeClient = null
             activeCase = null
             searchEngineQuery = ""
             usernameInput = ""
             LicenseCodeInput = ""
-            globalSuccessMsg = "تم تسجيل الخروج ومسح بيانات الحساب المحلي من هذا الجهاز."
+            globalSuccessMsg = "تم تسجيل الخروج مع حفظ مساحة هذا الحساب محلياً على الجهاز."
             navigateTo(Screen.Activation)
         }
+    }
+
+    private fun requestAppReload() {
+        appReloadNonce += 1
+    }
+
+    fun consumeAppReload() {
+        appReloadNonce = 0
     }
 
     fun saveLicenseServerUrl(url: String) {

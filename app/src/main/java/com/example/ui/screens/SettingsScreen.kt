@@ -251,7 +251,7 @@ fun SettingsScreen(viewModel: AppViewModel, license: LicenseCache?) {
         ) {
             Icon(Icons.Default.PowerSettingsNew, null, tint = Color.Red)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("تسجيل الخروج ومسح بيانات هذا الحساب", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("تسجيل الخروج وحفظ مساحة الحساب", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
 
         Spacer(modifier = Modifier.height(24.dp))

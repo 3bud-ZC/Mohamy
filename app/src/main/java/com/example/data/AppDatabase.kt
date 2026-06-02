@@ -30,6 +30,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun licenseDao(): LicenseDao
 
     companion object {
+        const val DATABASE_NAME = "mohamy_phone_database"
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -38,12 +40,19 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "mohamy_phone_database"
+                    DATABASE_NAME
                 )
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        fun closeInstance() {
+            synchronized(this) {
+                INSTANCE?.close()
+                INSTANCE = null
             }
         }
     }

@@ -24,9 +24,21 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+
+data class LicenseActivationPayload(
+    val username: String,
+    val token: String,
+    val expiresAt: String?,
+    val lawyerName: String,
+    val officeName: String,
+    val phone: String,
+    val licenseKey: String,
+    val deviceId: String,
+)
 
 class Repository(private val db: AppDatabase, private val context: Context) {
 
@@ -39,6 +51,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
     val generatedDocDao = db.generatedDocDao()
     val licenseDao = db.licenseDao()
     private val prefs = context.getSharedPreferences("mohamy_phone_prefs", Context.MODE_PRIVATE)
+    private val workspaceRoot = File(context.filesDir, "mohamy_phone/account_workspaces")
 
     // --- Arabic Normalization ---
     fun normalizeArabic(text: String): String {
@@ -225,6 +238,85 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         return File(context.filesDir, "mohamy_phone/files")
     }
 
+    private fun getLiveDatabaseFile(): File = context.getDatabasePath(AppDatabase.DATABASE_NAME)
+
+    private fun getLiveDatabaseWalFile(): File = File(getLiveDatabaseFile().path + "-wal")
+
+    private fun getLiveDatabaseShmFile(): File = File(getLiveDatabaseFile().path + "-shm")
+
+    private fun accountWorkspaceKey(username: String): String {
+        val normalized = username.trim().lowercase(Locale.ROOT)
+        val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }.take(24)
+    }
+
+    private fun getAccountWorkspaceDir(accountKey: String): File {
+        return File(workspaceRoot, accountKey)
+    }
+
+    private fun getAccountDatabaseDir(accountKey: String): File {
+        return File(getAccountWorkspaceDir(accountKey), "database")
+    }
+
+    private fun getAccountFilesDir(accountKey: String): File {
+        return File(getAccountWorkspaceDir(accountKey), "files")
+    }
+
+    private fun accountPrefKey(accountKey: String, suffix: String): String {
+        return "workspace_${accountKey}_$suffix"
+    }
+
+    fun currentWorkspaceUsername(): String? {
+        return prefs.getString("active_workspace_username", null)?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun ensureActiveWorkspaceMarker() {
+        if (!currentWorkspaceUsername().isNullOrBlank()) return
+        val license = licenseDao.getLicenseDirect() ?: return
+        setActiveWorkspaceUsername(license.username)
+    }
+
+    private fun setActiveWorkspaceUsername(username: String?) {
+        prefs.edit().apply {
+            if (username.isNullOrBlank()) {
+                remove("active_workspace_username")
+            } else {
+                putString("active_workspace_username", username.trim())
+            }
+        }.apply()
+    }
+
+    private fun saveCurrentSessionPrefsToAccount(accountKey: String) {
+        val token = prefs.getString("license_token", "") ?: ""
+        val status = prefs.getString("license_status", "") ?: ""
+        val lastCheck = prefs.getLong("license_last_check", 0L)
+        prefs.edit()
+            .putString(accountPrefKey(accountKey, "license_token"), token)
+            .putString(accountPrefKey(accountKey, "license_status"), status)
+            .putLong(accountPrefKey(accountKey, "license_last_check"), lastCheck)
+            .apply()
+    }
+
+    private fun loadAccountSessionPrefsToLive(accountKey: String) {
+        val token = prefs.getString(accountPrefKey(accountKey, "license_token"), "") ?: ""
+        val status = prefs.getString(accountPrefKey(accountKey, "license_status"), "") ?: ""
+        val lastCheck = prefs.getLong(accountPrefKey(accountKey, "license_last_check"), 0L)
+        prefs.edit()
+            .putString("license_token", token)
+            .putString("license_status", status)
+            .putLong("license_last_check", lastCheck)
+            .apply()
+    }
+
+    private fun clearLiveWorkspaceFiles() {
+        listOf(getLiveDatabaseFile(), getLiveDatabaseWalFile(), getLiveDatabaseShmFile()).forEach { file ->
+            if (file.exists()) {
+                file.delete()
+            }
+        }
+        deleteDirectoryContents(getWorkspaceFilesRoot())
+    }
+
     suspend fun saveFileToPrivateStorage(caseId: Int, fileName: String, fileUri: Uri): File {
         return withContext(Dispatchers.IO) {
             val destinationDir = getCaseFilesDirectory(caseId)
@@ -300,6 +392,16 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         }
     }
 
+    private fun copyFileIfExists(source: File, target: File) {
+        if (!source.exists() || !source.isFile) return
+        target.parentFile?.mkdirs()
+        FileInputStream(source).use { input ->
+            FileOutputStream(target).use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
+
     private fun deleteDirectoryContents(dir: File) {
         if (!dir.exists()) return
         dir.walkBottomUp().forEach {
@@ -312,6 +414,71 @@ class Repository(private val db: AppDatabase, private val context: Context) {
             db.clearAllTables()
             deleteDirectoryContents(getWorkspaceFilesRoot())
         }
+    }
+
+    suspend fun saveWorkspaceSnapshotForUsername(username: String) {
+        withContext(Dispatchers.IO) {
+            val normalizedUsername = username.trim()
+            if (normalizedUsername.isBlank()) return@withContext
+
+            db.openHelper.writableDatabase.execSQL("PRAGMA wal_checkpoint(FULL)")
+
+            val accountKey = accountWorkspaceKey(normalizedUsername)
+            val workspaceDir = getAccountWorkspaceDir(accountKey)
+            val databaseDir = getAccountDatabaseDir(accountKey)
+            val filesDir = getAccountFilesDir(accountKey)
+
+            if (workspaceDir.exists()) {
+                deleteDirectoryContents(workspaceDir)
+            }
+            databaseDir.mkdirs()
+            filesDir.mkdirs()
+
+            copyFileIfExists(getLiveDatabaseFile(), File(databaseDir, AppDatabase.DATABASE_NAME))
+            copyFileIfExists(getLiveDatabaseWalFile(), File(databaseDir, "${AppDatabase.DATABASE_NAME}-wal"))
+            copyFileIfExists(getLiveDatabaseShmFile(), File(databaseDir, "${AppDatabase.DATABASE_NAME}-shm"))
+
+            deleteDirectoryContents(filesDir)
+            copyDirectory(getWorkspaceFilesRoot(), filesDir)
+            saveCurrentSessionPrefsToAccount(accountKey)
+        }
+    }
+
+    suspend fun switchToAccountWorkspace(username: String) {
+        withContext(Dispatchers.IO) {
+            val normalizedUsername = username.trim()
+            require(normalizedUsername.isNotBlank()) { "username_required" }
+
+            val currentUsername = currentWorkspaceUsername()
+            if (!currentUsername.isNullOrBlank() && !currentUsername.equals(normalizedUsername, ignoreCase = true)) {
+                saveWorkspaceSnapshotForUsername(currentUsername)
+            }
+
+            AppDatabase.closeInstance()
+            clearLiveWorkspaceFiles()
+
+            val accountKey = accountWorkspaceKey(normalizedUsername)
+            val databaseDir = getAccountDatabaseDir(accountKey)
+            val filesDir = getAccountFilesDir(accountKey)
+
+            copyFileIfExists(File(databaseDir, AppDatabase.DATABASE_NAME), getLiveDatabaseFile())
+            copyFileIfExists(File(databaseDir, "${AppDatabase.DATABASE_NAME}-wal"), getLiveDatabaseWalFile())
+            copyFileIfExists(File(databaseDir, "${AppDatabase.DATABASE_NAME}-shm"), getLiveDatabaseShmFile())
+            copyDirectory(filesDir, getWorkspaceFilesRoot())
+
+            loadAccountSessionPrefsToLive(accountKey)
+            setActiveWorkspaceUsername(normalizedUsername)
+        }
+    }
+
+    suspend fun archiveActiveWorkspaceAndLogout() {
+        val activeUsername = currentWorkspaceUsername()
+        if (!activeUsername.isNullOrBlank()) {
+            saveWorkspaceSnapshotForUsername(activeUsername)
+        }
+        clearLocalWorkspace()
+        clearLicenseSessionCache()
+        setActiveWorkspaceUsername(null)
     }
 
     // --- Backup & Restore Logic ---
@@ -591,7 +758,70 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         }
     }
 
-    suspend fun activateLicense(username: String, activationCode: String): Result<LicenseCache> {
+    fun queuePendingActivation(payload: LicenseActivationPayload) {
+        val raw = JSONObject().apply {
+            put("username", payload.username)
+            put("token", payload.token)
+            put("expires_at", payload.expiresAt ?: "")
+            put("lawyer_name", payload.lawyerName)
+            put("office_name", payload.officeName)
+            put("phone", payload.phone)
+            put("license_key", payload.licenseKey)
+            put("device_id", payload.deviceId)
+        }.toString()
+        prefs.edit().putString("pending_activation_payload", raw).apply()
+    }
+
+    fun consumePendingActivation(): LicenseActivationPayload? {
+        val raw = prefs.getString("pending_activation_payload", null) ?: return null
+        prefs.edit().remove("pending_activation_payload").apply()
+        return try {
+            val json = JSONObject(raw)
+            LicenseActivationPayload(
+                username = json.optString("username"),
+                token = json.optString("token"),
+                expiresAt = json.optString("expires_at").takeIf { it.isNotBlank() },
+                lawyerName = json.optString("lawyer_name", "الأستاذ المحامي"),
+                officeName = json.optString("office_name", "مكتب المحاماة والخدمات القانونية"),
+                phone = json.optString("phone", ""),
+                licenseKey = json.optString("license_key", ""),
+                deviceId = json.optString("device_id", currentDeviceId())
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun persistActivatedLicense(payload: LicenseActivationPayload): LicenseCache {
+        return withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val license = LicenseCache(
+                id = 1,
+                username = payload.username.trim(),
+                activationCode = "server_auth",
+                activatedDeviceId = payload.deviceId,
+                activationDate = now,
+                lastCheckDate = now,
+                expiryDate = parseServerExpiryMillis(payload.expiresAt),
+                status = "نشط",
+                lawyerName = payload.lawyerName,
+                officeName = payload.officeName,
+                phone = payload.phone,
+                barNumber = payload.licenseKey
+            )
+            licenseDao.insertLicense(license)
+            prefs.edit()
+                .putString("license_token", payload.token)
+                .putString("license_status", "نشط")
+                .putLong("license_last_check", now)
+                .apply()
+            setActiveWorkspaceUsername(payload.username)
+            seedTemplatesIfEmpty()
+            license
+        }
+    }
+
+    suspend fun activateLicense(username: String, activationCode: String): Result<LicenseActivationPayload> {
         return withContext(Dispatchers.IO) {
             try {
                 if (username.isEmpty() || activationCode.isEmpty()) {
@@ -612,29 +842,17 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 try {
                     val (statusCode, responseJson) = postJson("$baseUrl/api/license/activate", payload)
                     if (statusCode in 200..299 && responseJson != null) {
-                        val now = System.currentTimeMillis()
-                        val license = LicenseCache(
-                            id = 1,
+                        val activation = LicenseActivationPayload(
                             username = username.trim(),
-                            activationCode = "server_auth",
-                            activatedDeviceId = deviceId,
-                            activationDate = now,
-                            lastCheckDate = now,
-                            expiryDate = parseServerExpiryMillis(responseJson.optString("expires_at").takeIf { it.isNotBlank() }),
-                            status = "نشط",
+                            token = responseJson.optString("token", ""),
+                            expiresAt = responseJson.optString("expires_at").takeIf { it.isNotBlank() },
                             lawyerName = responseJson.optString("lawyer_name", "الأستاذ المحامي"),
                             officeName = responseJson.optString("office_name", "مكتب المحاماة والخدمات القانونية"),
                             phone = responseJson.optString("phone", ""),
-                            barNumber = responseJson.optString("license_key", "")
+                            licenseKey = responseJson.optString("license_key", ""),
+                            deviceId = deviceId
                         )
-                        licenseDao.insertLicense(license)
-                        prefs.edit()
-                            .putString("license_token", responseJson.optString("token", ""))
-                            .putString("license_status", "نشط")
-                            .putLong("license_last_check", now)
-                            .apply()
-                        seedTemplatesIfEmpty()
-                        return@withContext Result.success(license)
+                        return@withContext Result.success(activation)
                     }
 
                     val err = responseJson?.optString("error", "activation_failed") ?: "activation_failed"
@@ -653,24 +871,17 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 } catch (networkError: Exception) {
                     // Development-safe fallback for local testing only in debug builds
                     if (BuildConfig.DEBUG && username.trim() == "test" && activationCode.trim() == "123456") {
-                        val oneYearMillis = 365L * 24 * 60 * 60 * 1000
-                        val license = LicenseCache(
-                            id = 1,
+                        val activation = LicenseActivationPayload(
                             username = "test",
-                            activationCode = "123456",
-                            activatedDeviceId = "DEV_MOCK_EMULATOR_001",
-                            activationDate = System.currentTimeMillis(),
-                            lastCheckDate = System.currentTimeMillis(),
-                            expiryDate = System.currentTimeMillis() + oneYearMillis,
-                            status = "نشط",
+                            token = "",
+                            expiresAt = null,
                             lawyerName = "الأستاذ المحامي (حساب تجريبي)",
                             officeName = "مكتب المحاماة والخدمات القانونية (نسخة تجريبية)",
                             phone = "01001234567",
-                            barNumber = "أ/123456 (تجريبي)"
+                            licenseKey = "أ/123456 (تجريبي)",
+                            deviceId = "DEV_MOCK_EMULATOR_001"
                         )
-                        licenseDao.insertLicense(license)
-                        seedTemplatesIfEmpty()
-                        return@withContext Result.success(license)
+                        return@withContext Result.success(activation)
                     }
                     return@withContext Result.failure(Exception("فشلت عملية التفعيل بسبب تعذر الوصول لسيرفر الترخيص."))
                 }
