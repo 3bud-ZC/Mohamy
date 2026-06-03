@@ -1511,46 +1511,47 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val intents = mutableMapOf<String, Int>()
         
         // Summary Intent
-        if (normalizedMessage.contains("ملخص") || normalizedMessage.contains("لخص")) intents["summary"] = 10
-        if (normalizedMessage.contains("موجز") || normalizedMessage.contains("نبذة")) intents["summary"] = (intents["summary"] ?: 0) + 5
+        if (normalizedMessage.contains("ملخص") || normalizedMessage.contains("لخص") || normalizedMessage.contains("خلاصه")) intents["summary"] = 10
+        if (normalizedMessage.contains("موجز") || normalizedMessage.contains("نبذة") || normalizedMessage.contains("اختصار")) intents["summary"] = (intents["summary"] ?: 0) + 5
         
         // Plan/Strategy Intent
-        if (normalizedMessage.contains("خطة") || normalizedMessage.contains("استراتيجية") || normalizedMessage.contains("خطه")) intents["plan"] = 10
+        if (normalizedMessage.contains("خطة") || normalizedMessage.contains("استراتيجية") || normalizedMessage.contains("خطه") || normalizedMessage.contains("نعمل ايه")) intents["plan"] = 10
         
         // Missing Docs Intent
-        if (normalizedMessage.contains("مستند") && (normalizedMessage.contains("ناقص") || normalizedMessage.contains("نواقص"))) intents["missing_docs"] = 10
+        if ((normalizedMessage.contains("مستند") || normalizedMessage.contains("ورق") || normalizedMessage.contains("ملف")) && 
+            (normalizedMessage.contains("ناقص") || normalizedMessage.contains("نواقص") || normalizedMessage.contains("مطلوب"))) intents["missing_docs"] = 10
         if (normalizedMessage.contains("النواقص") || normalizedMessage.contains("الناقصة")) intents["missing_docs"] = (intents["missing_docs"] ?: 0) + 8
         
         // Next Session Intent
-        if (normalizedMessage.contains("جلسة") && (normalizedMessage.contains("قادمة") || normalizedMessage.contains("القادمة") || normalizedMessage.contains("الجاية"))) intents["next_session"] = 10
-        if (normalizedMessage.contains("متى الجلسة")) intents["next_session"] = 10
+        if (normalizedMessage.contains("جلسة") && (normalizedMessage.contains("قادمة") || normalizedMessage.contains("القادمة") || normalizedMessage.contains("الجاية") || normalizedMessage.contains("اللي جايه"))) intents["next_session"] = 10
+        if (normalizedMessage.contains("متى الجلسة") || normalizedMessage.contains("امتي الجلسه") || normalizedMessage.contains("تاريخ الجلسة")) intents["next_session"] = 10
         
         // Open Tasks Intent
-        if (normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة")) intents["tasks"] = 10
+        if (normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة") || normalizedMessage.contains("مطلوب مننا") || normalizedMessage.contains("ورايا ايه")) intents["tasks"] = 10
         
         // Templates Intent
-        if (normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") || normalizedMessage.contains("نموذج")) intents["templates"] = 10
+        if (normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") || normalizedMessage.contains("نموذج") || normalizedMessage.contains("صيغة")) intents["templates"] = 10
         
         // Prep Intent
-        if (normalizedMessage.contains("تجهيز") || normalizedMessage.contains("استعداد") || normalizedMessage.contains("احضر ايه")) intents["prep"] = 10
+        if (normalizedMessage.contains("تجهيز") || normalizedMessage.contains("استعداد") || normalizedMessage.contains("احضر ايه") || normalizedMessage.contains("استعد للجلسه")) intents["prep"] = 10
         
         // Draft Intent
-        if (normalizedMessage.contains("مذكرة") || normalizedMessage.contains("صياغة") || normalizedMessage.contains("مسودة") || normalizedMessage.contains("اكتب")) intents["draft"] = 10
+        if (normalizedMessage.contains("مذكرة") || normalizedMessage.contains("صياغة") || normalizedMessage.contains("مسودة") || normalizedMessage.contains("اكتب") || normalizedMessage.contains("مرافعة")) intents["draft"] = 10
         
         // Opponent Intent
-        if (normalizedMessage.contains("خصم") || normalizedMessage.contains("ضد من")) intents["opponent"] = 10
+        if (normalizedMessage.contains("خصم") || normalizedMessage.contains("ضد من") || normalizedMessage.contains("مين الخصم") || normalizedMessage.contains("المنازع")) intents["opponent"] = 10
         
         // Fees Intent
-        if (normalizedMessage.contains("اتعاب") || normalizedMessage.contains("الأتعاب") || normalizedMessage.contains("فلوس")) intents["fees"] = 10
+        if (normalizedMessage.contains("اتعاب") || normalizedMessage.contains("الأتعاب") || normalizedMessage.contains("فلوس") || normalizedMessage.contains("مستحقات") || normalizedMessage.contains("دفع")) intents["fees"] = 10
 
         // Document Q&A Intent (Smart Extract)
-        if ((normalizedMessage.contains("مستند") || normalizedMessage.contains("ملف")) && 
-            (normalizedMessage.contains("ماذا") || normalizedMessage.contains("هل") || normalizedMessage.contains("كم") || normalizedMessage.contains("سؤال"))) {
+        if ((normalizedMessage.contains("مستند") || normalizedMessage.contains("ملف") || normalizedMessage.contains("الورق")) && 
+            (normalizedMessage.contains("ماذا") || normalizedMessage.contains("هل") || normalizedMessage.contains("كم") || normalizedMessage.contains("سؤال") || normalizedMessage.contains("ايه المكتوب"))) {
              intents["doc_qa"] = 15 // High priority if asking a question about a document
         }
 
         // Search Intent
-        if (normalizedMessage.contains("بحث") || normalizedMessage.contains("ابحث")) intents["search"] = 10
+        if (normalizedMessage.contains("بحث") || normalizedMessage.contains("ابحث") || normalizedMessage.contains("دورلي") || normalizedMessage.contains("دور علي")) intents["search"] = 10
 
         val topIntent = intents.maxByOrNull { it.value }?.key
 
