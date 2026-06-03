@@ -170,24 +170,26 @@ fun SmartAssistantScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
-                        .background(LegalNavyPrimary.copy(alpha = 0.08f), RoundedCornerShape(18.dp)),
+                        .size(58.dp)
+                        .background(LegalNavyPrimary.copy(alpha = 0.08f), RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(30.dp))
                 }
-                Text("المساعد الذكي", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = LegalNavyPrimary)
+                Text("المساعد الذكي", fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = LegalNavyPrimary)
                 Text(
-                    "محادثة عملية مبنية على بيانات القضية والملفات والجلسات، مع تحسين سحابي اختياري عند توفره.",
+                    "شات بوت قانوني عملي مبني على بيانات القضية والملفات، مع ردود مباشرة أو أوامر سريعة بحسب ما تحتاجه.",
                     fontSize = 12.sp,
                     color = Color.DarkGray,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -202,20 +204,37 @@ fun SmartAssistantScreen(
                     color = LegalNavyPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
-                Text(
-                    "القوالب: ${templates.size} | ملفات القضية: ${selectedCaseFiles.size}",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(
+                        onClick = { },
+                        enabled = false,
+                        label = { Text("قوالب ${templates.size}", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                    AssistChip(
+                        onClick = { },
+                        enabled = false,
+                        label = { Text("ملفات ${selectedCaseFiles.size}", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.Gavel, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
             }
         }
 
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.35f))
+            border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.35f)),
+            shape = RoundedCornerShape(22.dp)
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("اختار قضية", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("اختيار القضية", fontWeight = FontWeight.Bold, color = LegalNavyPrimary, modifier = Modifier.weight(1f))
+                    Text(
+                        "${selectedCase.caseType} • ${viewModel.caseReadinessScore(selectedCase)}%",
+                        fontSize = 11.sp,
+                        color = Color.Gray
+                    )
+                }
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -239,6 +258,28 @@ fun SmartAssistantScreen(
             }
         }
 
+        if (selectedCaseFiles.isEmpty()) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = LegalGoldSecondary.copy(alpha = 0.10f)),
+                border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.28f)),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.Default.Description, contentDescription = null, tint = LegalNavyPrimary)
+                    Text(
+                        "هذه القضية لا تحتوي على ملفات بعد. أضف مستندًا أو اختر قضية أخرى حتى تكون نتائج الملخص والبحث أدق.",
+                        fontSize = 12.sp,
+                        color = LegalNavyPrimary,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+
         val prompts = listOf(
             "ملخص القضية",
             "تجهيز الجلسة القادمة",
@@ -259,7 +300,10 @@ fun SmartAssistantScreen(
                     onClick = { submitPrompt(prompt) },
                     label = { Text(prompt, fontSize = 11.sp) },
                     leadingIcon = { Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        labelColor = LegalNavyPrimary
+                    )
                 )
             }
         }
@@ -272,7 +316,7 @@ fun SmartAssistantScreen(
             modifier = Modifier.weight(1f, fill = true),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(24.dp)
         ) {
             LazyColumn(
                 state = listState,
@@ -289,7 +333,8 @@ fun SmartAssistantScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("قوالب مناسبة", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
@@ -325,7 +370,7 @@ fun SmartAssistantScreen(
                     value = assistantInput,
                     onValueChange = { assistantInput = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("اكتب سؤالك للمساعد... مثلاً: جهز الجلسة القادمة") },
+                    placeholder = { Text("اكتب أمراً مباشراً: لخص القضية، جهز الجلسة القادمة، أو ابحث داخل الملفات") },
                     minLines = 2,
                     maxLines = 4,
                     trailingIcon = {
@@ -358,9 +403,11 @@ fun SmartAssistantScreen(
                     Button(
                         onClick = {
                             val lastAssistant = chatMessages.lastOrNull { it.role == AssistantRole.ASSISTANT }
-                            if (lastAssistant != null) {
+                            if (lastAssistant != null && lastAssistant.text.isNotBlank()) {
                                 viewModel.saveAssistantResultAsCaseNote(selectedCase.id, lastAssistant.text)
                                 Toast.makeText(context, "تم حفظ آخر رد داخل ملاحظات القضية.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "لا توجد نتيجة صالحة لحفظها بعد.", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.weight(1f),

@@ -857,6 +857,8 @@ fun CaseDetailsScreen(
                 } else {
                     caseFiles.forEach { f ->
                         val linkedSession = caseSessions.find { it.id == f.linkedSessionId }
+                        val fileAccent = parseHexColorOrDefault(f.accentColorHex, LegalNavyPrimary)
+                        val fileShape = caseFileShape(f.cardStyle)
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -866,10 +868,23 @@ fun CaseDetailsScreen(
                                     fileManualTextInput = f.extractedText
                                     fileDetailDialogShowing = true
                                 },
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            shape = fileShape,
+                            colors = CardDefaults.cardColors(containerColor = fileAccent.copy(alpha = 0.08f)),
+                            border = BorderStroke(1.dp, fileAccent.copy(alpha = 0.22f))
                         ) {
                             ListItem(
-                                leadingContent = { Icon(imageVector = Icons.Default.FileCopy, contentDescription = "ملف", tint = LegalGoldSecondary) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                leadingContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(fileAccent.copy(alpha = 0.14f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(imageVector = Icons.Default.FileCopy, contentDescription = "ملف", tint = fileAccent)
+                                    }
+                                },
                                 headlineContent = { Text(f.fileName, fontWeight = FontWeight.Bold) },
                                 supportingContent = {
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -877,6 +892,7 @@ fun CaseDetailsScreen(
                                         if (linkedSession != null) {
                                             Text("مرتبط بجلسة: ${linkedSession.title} - ${linkedSession.date}", fontSize = 11.sp, color = Color.Gray)
                                         }
+                                        Text("الهوية المرئية: ${f.cardStyle} | ${f.accentColorHex}", fontSize = 11.sp, color = Color.Gray)
                                     }
                                 },
                                 trailingContent = {
@@ -909,6 +925,8 @@ fun CaseDetailsScreen(
                                     .verticalScroll(rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                var editingAccent by remember(editingF.id) { mutableStateOf(editingF.accentColorHex) }
+                                var editingShape by remember(editingF.id) { mutableStateOf(editingF.cardStyle) }
                                 ListItem(
                                     headlineContent = { Text("اسم المستند الأصلي", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.Gray) },
                                     supportingContent = { Text(editingF.fileName, fontWeight = FontWeight.SemiBold) }
@@ -943,9 +961,66 @@ fun CaseDetailsScreen(
                                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
                                     placeholder = { Text("اكتب محتوى المستند أو كلمات وملاحظات هامة للبحث عنها لاحقاً...") }
                                 )
+
+                                Text("الهوية المرئية للمستند:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = LegalNavyPrimary)
+                                Row(
+                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CaseFileStylePalette.colors.forEach { colorHex ->
+                                        val chipColor = parseHexColorOrDefault(colorHex)
+                                        FilterChip(
+                                            selected = editingAccent == colorHex,
+                                            onClick = { editingAccent = colorHex },
+                                            label = {
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(14.dp)
+                                                            .clip(CircleShape)
+                                                            .background(chipColor)
+                                                    )
+                                                    Text(colorHex, fontSize = 11.sp)
+                                                }
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = chipColor.copy(alpha = 0.12f),
+                                                selectedLabelColor = chipColor
+                                            )
+                                        )
+                                    }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    CaseFileStylePalette.styles.forEach { style ->
+                                        FilterChip(
+                                            selected = editingShape == style,
+                                            onClick = { editingShape = style },
+                                            label = {
+                                                Text(
+                                                    when (style) {
+                                                        "paper" -> "ورقي"
+                                                        "sharp" -> "حاد"
+                                                        else -> "مقوس"
+                                                    },
+                                                    fontSize = 11.sp
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = LegalNavyPrimary,
+                                                selectedLabelColor = Color.White
+                                            )
+                                        )
+                                    }
+                                }
+
                                 Button(
                                     onClick = {
-                                        viewModel.updateFileManualText(editingF, fileManualTextInput) {
+                                        viewModel.updateFileManualText(
+                                            editingF,
+                                            fileManualTextInput,
+                                            editingAccent,
+                                            editingShape
+                                        ) {
                                             fileDetailDialogShowing = false
                                         }
                                     },
@@ -955,6 +1030,16 @@ fun CaseDetailsScreen(
                                     Icon(Icons.Default.Save, null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("حفظ وتحديث كشاف البحث اليدوي")
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val appearance = defaultCaseFileStyle(editingF.docType, editingF.fileName)
+                                        editingAccent = appearance.accentColorHex
+                                        editingShape = appearance.cardStyle
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("استعادة الهوية الافتراضية")
                                 }
                             }
                         },

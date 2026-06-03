@@ -200,6 +200,58 @@ fun DashboardScreen(
             }
         }
 
+        val nextPrioritySession = upcomingSessions.firstOrNull()
+        val urgentTasks = tasks.filter { task ->
+            val due = try {
+                SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(task.dueDate)?.time
+            } catch (_: Exception) {
+                null
+            }
+            due != null && due < System.currentTimeMillis() && task.status != "منتهية"
+        }.take(3)
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("أولوية اليوم", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = LegalNavyPrimary)
+                if (nextPrioritySession == null && urgentTasks.isEmpty()) {
+                    Text("لا توجد عناصر عاجلة حالياً. المكتب في وضع هادئ.", color = Color.Gray, fontSize = 12.sp)
+                } else {
+                    nextPrioritySession?.let { (session, _) ->
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            leadingContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(LegalGoldSecondary.copy(alpha = 0.16f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Event, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(18.dp))
+                                }
+                            },
+                            headlineContent = { Text("أقرب جلسة: ${session.title}", fontWeight = FontWeight.Bold, color = LegalNavyPrimary) },
+                            supportingContent = { Text("${session.caseTitle} | ${session.date} ${session.time}", fontSize = 12.sp, color = Color.Gray) }
+                        )
+                    }
+                    if (urgentTasks.isNotEmpty()) {
+                        urgentTasks.forEach { task ->
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, tint = LegalGoldSecondary, modifier = Modifier.size(16.dp))
+                                Text("مهمة متأخرة: ${task.title}", fontSize = 12.sp, color = Color.DarkGray)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -307,7 +359,12 @@ fun DashboardScreen(
                         fontSize = 12.sp
                     )
                 }
-                Icon(Icons.Default.Gavel, contentDescription = null, tint = LegalGoldLight)
+                OutlinedButton(
+                    onClick = { viewModel.navigateTo(Screen.SmartAssistant) },
+                    border = BorderStroke(1.dp, LegalGoldLight.copy(alpha = 0.35f))
+                ) {
+                    Text("فتح", color = LegalGoldLight)
+                }
             }
         }
 

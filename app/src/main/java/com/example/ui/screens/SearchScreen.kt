@@ -571,19 +571,30 @@ fun SearchScreen(
                         getSnippetText(file.extractedText, queryTxt)
                     } else {
                         "مستند مؤرشف غير مدعوم للبحث في هذه النسخة - يمكنك كتابة نص يدوي في واجهة تعديل المستند لتفعيل الفهرسة."
-                    }
+                        }
                 }
+                val accent = parseHexColorOrDefault(file.accentColorHex, LegalNavyPrimary)
+                val fileShape = caseFileShape(file.cardStyle)
 
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 6.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.5f))
+                    shape = fileShape,
+                    colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.06f)),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.24f))
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.FileCopy, null, tint = LegalNavyPrimary)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(accent.copy(alpha = 0.14f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.FileCopy, null, tint = accent)
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(file.fileName, fontWeight = FontWeight.Bold, color = LegalNavyPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f))
                             Box(
@@ -598,6 +609,7 @@ fun SearchScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("ملف القضية: ${file.caseTitle}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.DarkGray)
                         Text("الموكل المرتبط: ${file.clientName}", fontSize = 12.sp, color = Color.Gray)
+                        Text("الهوية: ${file.cardStyle} | ${file.accentColorHex}", fontSize = 11.sp, color = Color.Gray)
                         
                         // Snippet Card Preview
                         Spacer(modifier = Modifier.height(6.dp))

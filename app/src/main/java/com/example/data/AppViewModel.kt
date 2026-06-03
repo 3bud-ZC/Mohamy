@@ -618,6 +618,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 
                 val finalDocType = docType.ifBlank { repository.suggestDocumentType(fileName) }
                 val statusText = extractionStatus
+                val appearance = defaultCaseFileStyle(finalDocType, fileName)
                 
                 // Construct normalized search index matching all search criteria:
                 // file name, doc type, custom manually entered/extracted text, case title, client name
@@ -637,7 +638,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     fileLength = docLength,
                     extractedText = finalExtractedText,
                     extractionStatus = statusText,
-                    normalizedSearchIndex = normalizedIndex
+                    normalizedSearchIndex = normalizedIndex,
+                    accentColorHex = appearance.accentColorHex,
+                    cardStyle = appearance.cardStyle
                 )
                 repository.fileDao.insertFile(caseFile)
                 globalSuccessMsg = "تم رفع المستند وربطه بالقضية وفهرسته محلياً بنجاح."
@@ -684,14 +687,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateFileManualText(fileObj: CaseFile, newText: String, onDone: () -> Unit = {}) {
+    fun updateFileManualText(
+        fileObj: CaseFile,
+        newText: String,
+        accentColorHex: String = fileObj.accentColorHex,
+        cardStyle: String = fileObj.cardStyle,
+        onDone: () -> Unit = {}
+    ) {
         viewModelScope.launch {
             try {
                 val searchIndexContent = "${fileObj.fileName} ${fileObj.docType} ${fileObj.caseTitle} ${fileObj.clientName} $newText"
                 val normalizedIndex = repository.normalizeArabic(searchIndexContent)
                 val updatedFile = fileObj.copy(
                     extractedText = newText,
-                    normalizedSearchIndex = normalizedIndex
+                    normalizedSearchIndex = normalizedIndex,
+                    accentColorHex = accentColorHex,
+                    cardStyle = cardStyle
                 )
                 repository.fileDao.insertFile(updatedFile)
                 globalSuccessMsg = "تم حفظ النص وتحديث الفهرسة بالملف بنجاح."
@@ -700,6 +711,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 globalErrorMsg = "فشل في تحديث النص: ${e.message}"
             }
         }
+    }
+
+    fun updateFileAppearance(
+        fileObj: CaseFile,
+        accentColorHex: String,
+        cardStyle: String,
+        onDone: () -> Unit = {}
+    ) {
+        updateFileManualText(fileObj, fileObj.extractedText, accentColorHex, cardStyle, onDone)
     }
 
     fun deleteFile(fileObj: CaseFile) {
@@ -1415,6 +1435,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return LocalBusinessRules.readinessLabel(caseReadinessScore(legalCase))
     }
 
+    private fun hasMeaningfulCaseData(
+        legalCase: LegalCase,
+        sessions: List<CaseSession>,
+        tasks: List<LegalTask>,
+        files: List<CaseFile>
+    ): Boolean {
+        return legalCase.summary.isNotBlank() ||
+            legalCase.opponentName.isNotBlank() ||
+            legalCase.courtName.isNotBlank() ||
+            legalCase.courtCircle.isNotBlank() ||
+            legalCase.notes.isNotBlank() ||
+            sessions.isNotEmpty() ||
+            tasks.isNotEmpty() ||
+            files.isNotEmpty()
+    }
+
     fun localAlertsSummary(): List<String> {
         val now = System.currentTimeMillis()
         val upcomingSessions = allSessions.value
@@ -1610,6 +1646,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val tasksList = repository.taskDao.getTasksForCase(caseId).firstOrNull().orEmpty()
             val filesList = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
             val openTasks = tasksList.filter(::isTaskOpen)
+            if (!hasMeaningfulCaseData(caseObj, sessionsList, tasksList, filesList)) {
+                isAssistantLoading = false
+                onResult("لا توجد معلومات كافية داخل هذه القضية بعد لتوليد ملخص. أضف جلسة أو مستندًا أو ملخصًا أولًا.")
+                return@launch
+            }
 
             val sortedByDate = sessionsList.sortedBy { parseSessionDateTime(it) ?: Long.MAX_VALUE }
             val upcoming = sortedByDate.firstOrNull {
@@ -1660,6 +1701,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             val files = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
+            if (files.isEmpty()) {
+                isAssistantLoading = false
+                onResult("لا توجد ملفات مرفوعة لهذه القضية بعد، لذلك لا يمكن تحديد النواقص بدقة.")
+                return@launch
+            }
             val rules = CaseRulesEngine.getRules(caseObj.caseType, repository::normalizeArabic)
             val existing = mutableListOf<String>()
             val missing = mutableListOf<String>()
@@ -1703,7 +1749,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
 
             val text = if (next == null) {
-                "لا توجد جلسات قادمة. استخدم زر \"إضافة جلسة\" في تبويب الجلسات."
+                if (sessions.isEmpty()) {
+                    "لا توجد جلسات مسجلة لهذه القضية بعد."
+                } else {
+                    "لا توجد جلسات قادمة حالياً لهذه القضية. راجع تبويب الجلسات لتحديد موعد جديد."
+                }
             } else {
                 buildString {
                     appendLine("أقرب جلسة قادمة:")
@@ -1729,7 +1779,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val now = System.currentTimeMillis()
             val tasks = repository.taskDao.getTasksForCase(caseId).firstOrNull().orEmpty().filter(::isTaskOpen)
             val text = if (tasks.isEmpty()) {
-                "لا توجد مهام مفتوحة لهذه القضية."
+                "لا توجد مهام مفتوحة مسجلة لهذه القضية حالياً."
             } else {
                 buildString {
                     appendLine("المهام المفتوحة (${tasks.size}):")
@@ -1765,6 +1815,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val tasks = repository.taskDao.getTasksForCase(caseId).firstOrNull().orEmpty()
             val files = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
             val rules = CaseRulesEngine.getRules(caseObj.caseType, repository::normalizeArabic)
+            if (!hasMeaningfulCaseData(caseObj, sessions, tasks, files)) {
+                isAssistantLoading = false
+                onResult("لا توجد بيانات كافية حالياً لبناء خطة عمل لهذه القضية. أضف جلسة أو ملفًا أو مهامًا أولاً.")
+                return@launch
+            }
 
             val nextSession = sessions
                 .filter {
@@ -1839,6 +1894,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
             val rules = CaseRulesEngine.getRules(caseObj.caseType, repository::normalizeArabic)
             val missing = rules.requiredDocuments.filterNot { required -> files.any { requiredDocMatched(required, it) } }
+            if (next == null && sessions.isEmpty()) {
+                isAssistantLoading = false
+                onResult("لا توجد جلسة مسجلة بعد لهذه القضية، لذلك لا يمكن تجهيز جلسة قادمة.")
+                return@launch
+            }
             val text = buildString {
                 if (next == null) {
                     appendLine("لا توجد جلسة قادمة مسجلة لهذه القضية.")
@@ -1911,7 +1971,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     val last = sessions
                         .filter { (parseSessionDateTime(it) ?: Long.MIN_VALUE) < System.currentTimeMillis() }
                         .maxByOrNull { parseSessionDateTime(it) ?: Long.MIN_VALUE }
-                    onResult(last?.let { "آخر جلسة كانت بتاريخ ${it.date} ${it.time} بعنوان ${it.title}." } ?: "لا توجد جلسات سابقة مسجلة.")
+                    onResult(last?.let { "آخر جلسة كانت بتاريخ ${it.date} ${it.time} بعنوان ${it.title}." } ?: "لا توجد جلسات سابقة مسجلة لهذه القضية.")
                 }
                 "missing_docs" -> getMissingDocumentsSuggestion(caseId, onResult)
                 "opponent" -> onResult("الخصم المسجل في هذه القضية: ${caseObj.opponentName.ifBlank { "غير محدد" }}")

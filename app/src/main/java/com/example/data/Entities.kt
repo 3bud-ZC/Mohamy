@@ -89,7 +89,9 @@ data class CaseFile(
     val uploadDate: Long = System.currentTimeMillis(),
     val extractedText: String = "", // النص المستخرج ومطهر للبحث ومفهرس
     val extractionStatus: String = "نجاح", // نجاح، غير مدعوم
-    val normalizedSearchIndex: String = "" // الفهرس الموحد والمطهر للبحث العربي بالكامل
+    val normalizedSearchIndex: String = "", // الفهرس الموحد والمطهر للبحث العربي بالكامل
+    val accentColorHex: String = "#E8EEF8",
+    val cardStyle: String = "rounded"
 )
 
 @Entity(tableName = "templates")

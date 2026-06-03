@@ -248,6 +248,12 @@ class Repository(private val db: AppDatabase, private val context: Context) {
 
     // --- Template Seeding ---
     suspend fun seedTemplatesIfEmpty() {
+        val existingTemplates = templateDao.getAllTemplates().firstOrNull().orEmpty()
+        if (existingTemplates.isNotEmpty()) return
+        templateDao.insertTemplates(defaultLegalTemplates())
+        Log.d("Repository", "Seeded ${defaultLegalTemplates().size} professional legal templates")
+        return
+
         val defaultTemplates = listOf(
             LegalTemplate(
                 id = 1,

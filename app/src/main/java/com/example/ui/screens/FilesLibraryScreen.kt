@@ -49,10 +49,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AppViewModel
+import com.example.data.caseFileShape
 import com.example.data.CaseFile
 import com.example.data.Client
 import com.example.data.LegalCase
 import com.example.data.Screen
+import com.example.data.parseHexColorOrDefault
 import com.example.ui.formatFileSize
 import com.example.ui.openCaseFile
 import com.example.ui.theme.LegalGoldSecondary
@@ -154,11 +156,14 @@ fun FilesLibraryScreen(
                 items(filteredFiles) { file ->
                     val caseExists = cases.any { it.id == file.caseId }
                     val linkedClientName = clients.firstOrNull { it.id == file.clientId }?.name ?: file.clientName
+                    val accent = parseHexColorOrDefault(file.accentColorHex, LegalNavyPrimary)
+                    val fileShape = caseFileShape(file.cardStyle)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        shape = fileShape,
+                        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.06f)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
                     ) {
                         Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             ListItem(
@@ -166,10 +171,10 @@ fun FilesLibraryScreen(
                                 leadingContent = {
                                     Box(
                                         modifier = Modifier
-                                            .background(LegalGoldSecondary.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
+                                            .background(accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
                                             .padding(10.dp)
                                     ) {
-                                        Icon(Icons.Default.Description, contentDescription = null, tint = LegalNavyPrimary)
+                                        Icon(Icons.Default.Description, contentDescription = null, tint = accent)
                                     }
                                 },
                                 headlineContent = {
@@ -187,10 +192,11 @@ fun FilesLibraryScreen(
                                             fontSize = 11.sp,
                                             color = Color.Gray
                                         )
+                                        Text("الهوية: ${file.cardStyle} | ${file.accentColorHex}", fontSize = 11.sp, color = Color.Gray)
                                     }
                                 },
                                 trailingContent = {
-                                    Icon(Icons.Default.FolderCopy, contentDescription = null, tint = LegalGoldSecondary)
+                                    Icon(Icons.Default.FolderCopy, contentDescription = null, tint = accent)
                                 }
                             )
 
