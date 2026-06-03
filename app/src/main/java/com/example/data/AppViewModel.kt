@@ -1795,9 +1795,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             isAssistantLoading = true
             val sessions = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
             val now = System.currentTimeMillis()
+            val startOfDay = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
             val next = sessions
                 .filter {
-                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= now &&
+                    (parseSessionDateTime(it) ?: Long.MAX_VALUE) >= startOfDay &&
                         it.status != "منتهية" &&
                         it.status != "ملغاة"
                 }

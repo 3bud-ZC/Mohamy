@@ -1,8 +1,8 @@
 {
-  "versionCode": 7,
-  "versionName": "1.5.0",
-  "title": "Mohamy Phone 1.5.0",
-  "notes": "# Mohamy Phone 1.5.0\n\nTag: `v1.5.0`\n\n- feat: complete revamp of Smart Assistant UI and improved Arabic Intent matching",
-  "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.5.0/app-release.apk",
-  "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.5.0"
+  "versionCode": 8,
+  "versionName": "1.5.1",
+  "title": "Mohamy Phone 1.5.1",
+  "notes": "# Mohamy Phone 1.5.1\n\nTag: `v1.5.1`\n\n- fix: smart assistant fail to detect today's sessions",
+  "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.5.1/app-release.apk",
+  "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.5.1"
 }
