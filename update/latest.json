@@ -2,7 +2,7 @@
   "versionCode": 6,
   "versionName": "1.4.0",
   "title": "Mohamy Phone 1.4.0",
-  "notes": "# Mohamy Phone 1.4.0\n\nTag: `v1.4.0`\n\n- ترقية المساعد الذكي بالأوامر الصوتية وتحليل النوايا.\n- استخراج النصوص عبر الذكاء الاصطناعي (OCR).\n- تحسين شكل شريط التنقل السفلي والواجهة.\n- أتمتة قانونية للمهام حسب نوع القضية.",
+  "notes": "# Mohamy Phone 1.4.0\n\nTag: `v1.4.0`\n\n- fix: resolve compilation error for userMessage in AppViewModel\n- fix: use standard mlkit text-recognition as arabic is unsupported\n- fix: refine bottom navigation and update release manifest\n- feat: smart assistant voice input, NLP intent, and legal automation (v1.4.0)\n- Update release manifest for v1.3.1",
   "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.4.0/app-release.apk",
   "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.4.0"
 }
