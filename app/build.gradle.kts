@@ -102,7 +102,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.navigation.compose)
-  implementation("com.google.mlkit:text-recognition-arabic:16.0.1")
+  implementation("com.google.mlkit:text-recognition:16.0.1")
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   // implementation(libs.coil.compose)
