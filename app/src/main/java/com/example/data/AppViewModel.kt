@@ -1568,7 +1568,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             "prep" -> getSessionPrepAssistant(caseId, onResult)
             "draft" -> draftCaseMemo(caseId, onResult)
             "opponent" -> answerCaseQuestion(caseId, "opponent", onResult)
-            "fees" -> getFeesAssistant(caseId, onResult)
+            "fees" -> getFeesAssistant(caseId, userMessage, onResult)
             "doc_qa" -> {
                 // For document Q&A, fallback to cloud if enabled, otherwise do local search
                 viewModelScope.launch {
@@ -1602,7 +1602,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun getFeesAssistant(caseId: Int, onResult: (String) -> Unit) {
+    private fun getFeesAssistant(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
                 viewModelScope.launch {
                     isAssistantLoading = true
                     val legalCase = repository.caseDao.getCaseById(caseId)
