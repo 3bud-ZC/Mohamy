@@ -2,7 +2,7 @@
   "versionCode": 5,
   "versionName": "1.3.1",
   "title": "Mohamy Phone 1.3.1",
-  "notes": "إعادة بناء الداشبورد ليصبح مركز قرار أوضح، تحسين الشريط السفلي ليكون عمليًا أكثر، وتخصيص هوية الملفات مع شاشة مساعد أقرب للشات بوت.",
+  "notes": "# Mohamy Phone 1.3.1\n\nTag: `v1.3.1`\n\n- Refine dashboard, assistant, and file styling\n- Update release manifest for v1.3.0\n- Update release manifest for v1.3.0",
   "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.3.1/app-release.apk",
   "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.3.1"
 }
