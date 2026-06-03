@@ -2,7 +2,7 @@
   "versionCode": 4,
   "versionName": "1.3.0",
   "title": "Mohamy Phone 1.3.0",
-  "notes": "واجهة المساعد الذكي أصبحت محادثة مركزية أكثر احترافية، مع ترتيب أفضل للشريط السفلي وتحسينات على التجربة العامة.",
+  "notes": "# Mohamy Phone 1.3.0\n\nTag: `v1.3.0`\n\n- Fix release workflow gradlew permissions\n- Allow release workflow to fall back without signing secrets\n- Refine smart assistant layout and bump release 1.3.0\n- Add per-account local workspaces on device\n- Isolate local data when switching accounts\n- Fix APK licensing endpoint and add sell-ready admin presets\n- Redesign admin panel UI and improve management workflow\n- Production deploy prep: admin domain setup and full maintenance",
   "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.3.0/app-release.apk",
   "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.3.0"
 }
