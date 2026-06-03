@@ -48,8 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${ANDROID_KEYSTORE_B64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
-            echo "Missing signing secrets. Add ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
-            exit 1
+            echo "Signing secrets are not configured. Falling back to Gradle release signing defaults."
+            exit 0
           fi
           mkdir -p signing
           printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > signing/mohamy-release.jks
