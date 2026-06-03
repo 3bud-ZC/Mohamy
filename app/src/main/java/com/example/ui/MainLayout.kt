@@ -117,70 +117,7 @@ fun openCaseFile(context: Context, f: CaseFile) {
     }
 }
 
-@Composable
-private fun BottomDockItem(
-    label: String,
-    icon: ImageVector,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    center: Boolean = false,
-    onClick: () -> Unit
-) {
-    val containerColor = when {
-        selected -> LegalNavyPrimary
-        center -> LegalGoldSecondary.copy(alpha = 0.18f)
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-    }
-    val contentColor = when {
-        selected -> Color.White
-        center -> LegalNavyPrimary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val shape = if (center) RoundedCornerShape(20.dp) else RoundedCornerShape(16.dp)
-    val height = if (center) 68.dp else 58.dp
-
-    Card(
-        modifier = modifier
-            .height(height)
-            .clickable(onClick = onClick),
-        shape = shape,
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = BorderStroke(
-            1.dp,
-            if (selected) LegalGoldSecondary.copy(alpha = 0.45f) else Color.Transparent
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (center || selected) 4.dp else 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(if (center) 30.dp else 26.dp)
-                    .clip(CircleShape)
-                    .background(if (selected) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = contentColor,
-                    modifier = Modifier.size(if (center) 18.dp else 16.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = label,
-                fontSize = if (center) 11.sp else 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor,
-                maxLines = 1
-            )
-        }
-    }
-}
+// Removed BottomDockItem to use standard NavigationBar
 
 tailrec fun Context.findHostActivity(): androidx.activity.ComponentActivity? {
     return when (this) {
@@ -385,56 +322,42 @@ fun MainLayout(viewModel: AppViewModel) {
             },
             bottomBar = {
                 if (activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 10.dp,
-                        shadowElevation = 8.dp,
-                        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        tonalElevation = 8.dp,
                         modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
                     ) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                BottomDockItem(
-                                    label = "المكتبة",
-                                    icon = Icons.Default.FolderCopy,
-                                    selected = activeScreen is Screen.FilesLibrary || activeScreen is Screen.Search,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.navigateTo(Screen.FilesLibrary) }
+                        val items = listOf(
+                            Triple("المكتبة", Icons.Default.FolderCopy, activeScreen is Screen.FilesLibrary || activeScreen is Screen.Search),
+                            Triple("القضايا", Icons.Default.Gavel, activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit),
+                            Triple("المساعد", Icons.Default.AutoAwesome, activeScreen is Screen.SmartAssistant),
+                            Triple("الموكلون", Icons.Default.People, activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit),
+                            Triple("الجلسات", Icons.Default.CalendarToday, activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit)
+                        )
+                        
+                        items.forEach { (label, icon, selected) ->
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = {
+                                    when (label) {
+                                        "المكتبة" -> viewModel.navigateTo(Screen.FilesLibrary)
+                                        "القضايا" -> viewModel.navigateTo(Screen.CasesList)
+                                        "المساعد" -> viewModel.navigateTo(Screen.SmartAssistant)
+                                        "الموكلون" -> viewModel.navigateTo(Screen.ClientsList)
+                                        "الجلسات" -> viewModel.navigateTo(Screen.SessionsList)
+                                    }
+                                },
+                                icon = { Icon(imageVector = icon, contentDescription = label) },
+                                label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = LegalNavyPrimary,
+                                    selectedTextColor = LegalNavyPrimary,
+                                    indicatorColor = LegalGoldSecondary.copy(alpha = 0.2f),
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                BottomDockItem(
-                                    label = "القضايا",
-                                    icon = Icons.Default.Gavel,
-                                    selected = activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.navigateTo(Screen.CasesList) }
-                                )
-                                BottomDockItem(
-                                    label = "المساعد",
-                                    icon = Icons.Default.AutoAwesome,
-                                    selected = activeScreen is Screen.SmartAssistant,
-                                    modifier = Modifier.weight(1.15f),
-                                    center = true,
-                                    onClick = { viewModel.navigateTo(Screen.SmartAssistant) }
-                                )
-                                BottomDockItem(
-                                    label = "الموكلون",
-                                    icon = Icons.Default.People,
-                                    selected = activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.navigateTo(Screen.ClientsList) }
-                                )
-                                BottomDockItem(
-                                    label = "الجلسات",
-                                    icon = Icons.Default.CalendarToday,
-                                    selected = activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.navigateTo(Screen.SessionsList) }
-                                )
-                            }
+                            )
                         }
                     }
                 }
