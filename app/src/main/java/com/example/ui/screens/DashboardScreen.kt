@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -20,6 +23,18 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+
+private fun parseDashboardSessionMillis(session: CaseSession): Long? {
+    val full = if (session.time.isBlank()) "${session.date} 23:59" else "${session.date} ${session.time}"
+    val formats = listOf("yyyy-MM-dd HH:mm", "yyyy-MM-dd H:mm")
+    formats.forEach { pattern ->
+        try {
+            return SimpleDateFormat(pattern, Locale.ENGLISH).parse(full)?.time
+        } catch (_: Exception) {
+        }
+    }
+    return null
+}
 
 @Composable
 fun DashboardScreen(
@@ -33,40 +48,55 @@ fun DashboardScreen(
     val openCasesCount = cases.size
     val pendingTasksCount = tasks.filter { it.status == "مفتوحة" }.size
     val todayDateStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
-    val todaySessionsCount = sessions.filter { it.date == todayDateStr }.size
-    val latestSessions = sessions.sortedByDescending { "${it.date} ${it.time}" }.take(3)
+    val todaySessionsCount = sessions.count { it.date.trim() == todayDateStr && it.status != "ملغاة" }
+    val todayDisplayLabel = SimpleDateFormat("dd MMMM yyyy", Locale.forLanguageTag("ar")).format(Date())
+    val latestSessions = sessions
+        .sortedByDescending { parseDashboardSessionMillis(it) ?: Long.MIN_VALUE }
+        .take(3)
     val latestFiles = files.sortedByDescending { it.uploadDate }.take(3)
+    val upcomingSessions = sessions
+        .mapNotNull { session -> parseDashboardSessionMillis(session)?.let { session to it } }
+        .filter { (session, time) -> time >= System.currentTimeMillis() && session.status != "ملغاة" }
+        .sortedBy { it.second }
+        .take(3)
+    val alerts = remember(sessions, tasks) { viewModel.localAlertsSummary() }
+    val readinessCases = remember(cases, sessions, tasks, files) {
+        cases.sortedByDescending { viewModel.caseReadinessScore(it) }.take(3)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFFF4F7FC), Color(0xFFEFF3FA), Color.White)
+                )
+            )
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Welcome Header Setup
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 20.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(
-                    androidx.compose.ui.graphics.Brush.linearGradient(
+                    Brush.linearGradient(
                         colors = listOf(LegalNavyPrimary, LegalSlateDark)
                     )
                 )
         ) {
-            // Decorative background element
             Icon(
                 imageVector = Icons.Default.AccountBalance,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.05f),
+                tint = Color.White.copy(alpha = 0.08f),
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(150.dp)
                     .align(Alignment.BottomEnd)
-                    .offset(x = 20.dp, y = 20.dp)
+                    .offset(x = 24.dp, y = 24.dp)
             )
 
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(22.dp)) {
                 Text(
                     text = "مرحباً بسيادة المستشار ⚖️",
                     style = MaterialTheme.typography.titleLarge,
@@ -81,77 +111,172 @@ fun DashboardScreen(
                     color = LegalGoldLight.copy(alpha = 0.9f),
                     lineHeight = 20.sp
                 )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardPill(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.Event,
+                        text = "اليوم: $todayDisplayLabel"
+                    )
+                    DashboardPill(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.AutoMirrored.Filled.Assignment,
+                        text = "مهام مفتوحة: $pendingTasksCount"
+                    )
+                }
             }
         }
 
-        // Stats Row Widget Layout grid-style
-        Text(
-            text = "إحصائيات المكتب",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCard(
-                title = "قضايا مفتوحة",
-                count = openCasesCount.toString(),
-                icon = Icons.Default.Work,
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = "عملاء نشطون",
-                count = clients.size.toString(),
-                icon = Icons.Default.Person,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCard(
-                title = "جلسات اليوم",
-                count = todaySessionsCount.toString(),
-                icon = Icons.Default.Event,
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = "مهام معلقة",
-                count = pendingTasksCount.toString(),
-                icon = Icons.Default.Assignment,
-                modifier = Modifier.weight(1f)
-            )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = "إحصائيات المكتب",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    color = LegalNavyPrimary,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard(
+                        title = "قضايا مفتوحة",
+                        count = openCasesCount.toString(),
+                        icon = Icons.Default.Work,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        title = "موكلون نشطون",
+                        count = clients.size.toString(),
+                        icon = Icons.Default.Person,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard(
+                        title = "جلسات اليوم",
+                        count = todaySessionsCount.toString(),
+                        icon = Icons.Default.Event,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        title = "مهام معلقة",
+                        count = pendingTasksCount.toString(),
+                        icon = Icons.AutoMirrored.Filled.Assignment,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
 
-        // Quick Actions panel
-        Text(
-            text = "إجراءات سريعة",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
-        )
-        Row(
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
-            QuickActionBtn(
-                title = "عميل جديد",
-                icon = Icons.Default.PersonAdd,
-                onClick = { viewModel.navigateTo(Screen.ClientAddEdit()) },
-                modifier = Modifier.weight(1.0f)
-            )
-            QuickActionBtn(
-                title = "قضية جديدة",
-                icon = Icons.Default.AddBusiness,
-                onClick = { viewModel.navigateTo(Screen.CaseAddEdit()) },
-                modifier = Modifier.weight(1.0f)
-            )
-            QuickActionBtn(
-                title = "جلسة جديدة",
-                icon = Icons.Default.AddAlert,
-                onClick = { viewModel.navigateTo(Screen.SessionAddEdit()) },
-                modifier = Modifier.weight(1.0f)
-            )
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("تقويم المكتب اليومي", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = LegalNavyPrimary)
+                if (alerts.isEmpty()) {
+                    Text("لا توجد تنبيهات حالياً.", color = Color.Gray, fontSize = 12.sp)
+                } else {
+                    alerts.forEach { alert ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = LegalGoldSecondary, modifier = Modifier.size(16.dp))
+                            Text(alert, fontSize = 12.sp, color = Color.DarkGray)
+                        }
+                    }
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(10.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = "إجراءات سريعة",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    color = LegalNavyPrimary,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    QuickActionBtn(
+                        title = "موكل جديد",
+                        icon = Icons.Default.PersonAdd,
+                        onClick = { viewModel.navigateTo(Screen.ClientAddEdit()) },
+                        modifier = Modifier.weight(1f),
+                        accentColor = LegalNavyPrimary
+                    )
+                    QuickActionBtn(
+                        title = "قضية جديدة",
+                        icon = Icons.Default.AddBusiness,
+                        onClick = { viewModel.navigateTo(Screen.CaseAddEdit()) },
+                        modifier = Modifier.weight(1f),
+                        accentColor = LegalNavyPrimary
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    QuickActionBtn(
+                        title = "جلسة جديدة",
+                        icon = Icons.Default.AddAlert,
+                        onClick = { viewModel.navigateTo(Screen.SessionAddEdit()) },
+                        modifier = Modifier.weight(1f),
+                        accentColor = LegalNavyPrimary
+                    )
+                    QuickActionBtn(
+                        title = "مكتبة الملفات",
+                        icon = Icons.Default.FolderCopy,
+                        onClick = { viewModel.navigateTo(Screen.FilesLibrary) },
+                        modifier = Modifier.weight(1f),
+                        accentColor = LegalGoldSecondary
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    QuickActionBtn(
+                        title = "المساعد الذكي",
+                        icon = Icons.Default.AutoAwesome,
+                        onClick = { viewModel.navigateTo(Screen.SmartAssistant) },
+                        modifier = Modifier.weight(1f),
+                        accentColor = LegalGoldSecondary
+                    )
+                    QuickActionBtn(
+                        title = "القوالب القانونية",
+                        icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+                        onClick = { viewModel.navigateTo(Screen.LegalTemplatesList) },
+                        modifier = Modifier.weight(1f),
+                        accentColor = LegalGoldSecondary
+                    )
+                }
+            }
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -185,39 +310,8 @@ fun DashboardScreen(
                 Icon(Icons.Default.Gavel, contentDescription = null, tint = LegalGoldLight)
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            QuickActionBtn(
-                title = "القوالب القانونية",
-                icon = Icons.Default.InsertDriveFile,
-                onClick = { viewModel.navigateTo(Screen.LegalTemplatesList) },
-                modifier = Modifier.weight(1.0f)
-            )
-            QuickActionBtn(
-                title = "نسخة احتياطية",
-                icon = Icons.Default.Backup,
-                onClick = { viewModel.navigateTo(Screen.BackupRestore) },
-                modifier = Modifier.weight(1.0f)
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        QuickActionBtn(
-            title = "استيراد بيانات",
-            icon = Icons.Default.FileUpload,
-            onClick = { viewModel.navigateTo(Screen.ImportData) },
-            modifier = Modifier.fillMaxWidth()
-        )
 
-        // Recent cases list
-        Text(
-            text = "أحدث القضايا النشطة",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
-        )
+        DashboardSectionTitle("أحدث القضايا النشطة")
         if (cases.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -273,15 +367,60 @@ fun DashboardScreen(
             }
         }
 
-        Text(
-            text = "أحدث الجلسات",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
-        )
-        if (latestSessions.isEmpty()) {
-            Text("لا توجد جلسات مضافة بعد.", color = Color.Gray, fontSize = 13.sp)
+        if (readinessCases.isNotEmpty()) {
+            DashboardSectionTitle("أعلى القضايا جاهزية")
+            readinessCases.forEach { item ->
+                val readiness = viewModel.caseReadinessScore(item)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clickable { viewModel.navigateTo(Screen.CaseDetails(item.id)) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(item.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary, modifier = Modifier.weight(1f))
+                            Text("$readiness%", color = LegalNavyPrimary, fontWeight = FontWeight.ExtraBold)
+                        }
+                        LinearProgressIndicator(
+                            progress = readiness / 100f,
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp)),
+                            color = LegalGoldSecondary,
+                            trackColor = LegalGrayLight
+                        )
+                        Text("${viewModel.caseReadinessLabel(item)} | ${item.caseType} | ${item.clientName}", fontSize = 12.sp, color = Color.Gray)
+                    }
+                }
+            }
+        }
+
+        DashboardSectionTitle("أقرب الجلسات")
+        if (upcomingSessions.isEmpty()) {
+            Text("لا توجد جلسات قادمة مجدولة حالياً.", color = Color.Gray, fontSize = 13.sp)
         } else {
+            upcomingSessions.forEach { (session, _) ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clickable { viewModel.navigateTo(Screen.SessionAddEdit(sessionId = session.id)) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = { Text(session.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary) },
+                        supportingContent = { Text("${session.caseTitle} | ${session.date} ${session.time} | ${session.status}", fontSize = 12.sp, color = Color.Gray) },
+                        trailingContent = { Icon(Icons.Default.Event, contentDescription = null, tint = LegalGoldSecondary) }
+                    )
+                }
+            }
+        }
+
+        if (latestSessions.isNotEmpty()) {
+            DashboardSectionTitle("آخر تحديثات الجلسات")
             latestSessions.forEach { session ->
                 Card(
                     modifier = Modifier
@@ -294,19 +433,14 @@ fun DashboardScreen(
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         headlineContent = { Text(session.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary) },
-                        supportingContent = { Text("${session.caseTitle} | ${session.date} ${session.time}", fontSize = 12.sp, color = Color.Gray) },
-                        trailingContent = { Icon(Icons.Default.Event, contentDescription = null, tint = LegalGoldSecondary) }
+                        supportingContent = { Text("${session.caseTitle} | ${session.date} ${session.time} | ${session.status}", fontSize = 12.sp, color = Color.Gray) },
+                        trailingContent = { Icon(Icons.Default.History, contentDescription = null, tint = LegalGoldSecondary) }
                     )
                 }
             }
         }
 
-        Text(
-            text = "آخر الملفات المضافة",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
-        )
+        DashboardSectionTitle("آخر الملفات المضافة")
         if (latestFiles.isEmpty()) {
             Text("لا توجد ملفات مرفوعة بعد.", color = Color.Gray, fontSize = 13.sp)
         } else {
@@ -332,15 +466,60 @@ fun DashboardScreen(
 }
 
 @Composable
+private fun DashboardPill(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    text: String
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = LegalGoldLight,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = text,
+                color = Color.White.copy(alpha = 0.92f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardSectionTitle(title: String) {
+    Text(
+        text = title,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 16.sp,
+        color = LegalNavyPrimary,
+        modifier = Modifier.padding(top = 12.dp)
+    )
+}
+
+@Composable
 fun StatCard(title: String, count: String, icon: ImageVector, modifier: Modifier) {
     Card(
-        modifier = modifier.height(110.dp),
+        modifier = modifier.height(112.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Decorative background icon
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -350,11 +529,11 @@ fun StatCard(title: String, count: String, icon: ImageVector, modifier: Modifier
                     .align(Alignment.BottomEnd)
                     .offset(x = 20.dp, y = 20.dp)
             )
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(14.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Row(
@@ -366,7 +545,7 @@ fun StatCard(title: String, count: String, icon: ImageVector, modifier: Modifier
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(LegalNavyPrimary.copy(alpha = 0.1f)),
+                            .background(LegalNavyPrimary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(imageVector = icon, contentDescription = title, tint = LegalNavyPrimary, modifier = Modifier.size(20.dp))
@@ -391,31 +570,51 @@ fun StatCard(title: String, count: String, icon: ImageVector, modifier: Modifier
 }
 
 @Composable
-fun QuickActionBtn(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun QuickActionBtn(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accentColor: Color = LegalNavyPrimary
+) {
     Card(
-        modifier = modifier.height(85.dp).clickable(onClick = onClick),
+        modifier = modifier
+            .height(92.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = LegalGrayLight)
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.16f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = LegalNavyPrimary,
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = accentColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(7.dp))
             Text(
                 text = title,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = LegalNavyPrimary,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                lineHeight = 15.sp
             )
         }
     }

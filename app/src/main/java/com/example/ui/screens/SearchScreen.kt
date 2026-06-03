@@ -10,6 +10,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.openCaseFile
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.legalScreenBackground
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -205,19 +209,29 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .legalScreenBackground()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("الباحث الموحد وكشاف المستندات 🔍", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
-        Spacer(modifier = Modifier.height(6.dp))
-        Text("ابحث محلياً وبالمطابقة العربية المعقدة تحت أي ملف قضية، عريضة، أو مستند مؤرشف.", fontSize = 12.sp, color = Color.Gray)
-        Spacer(modifier = Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("الباحث الموحد وكشاف المستندات 🔍", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = LegalNavyPrimary)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("ابحث محلياً وبالمطابقة العربية المعقدة تحت أي ملف قضية، عريضة، أو مستند مؤرشف.", fontSize = 12.sp, color = Color.Gray)
+            }
+        }
 
         // Query input
         OutlinedTextField(
             value = queryTxt,
             onValueChange = { queryTxt = it },
-            placeholder = { Text("اكتب مسمى المستند، اسم العميل، التصنيف، أو كلمات من قلب المستند...") },
+            placeholder = { Text("اكتب مسمى المستند، اسم الموكل، التصنيف، أو كلمات من قلب المستند...") },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = LegalGoldSecondary) },
             trailingIcon = {
                 if (queryTxt.isNotEmpty()) {
@@ -240,7 +254,7 @@ fun SearchScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            val scopesList = listOf("كل الملفات", "بالقضية", "بالعميل", "بملف معين")
+            val scopesList = listOf("كل الملفات", "بالقضية", "بالموكل", "بملف معين")
             scopesList.forEachIndexed { idx, label ->
                 val selected = selectedScope == idx
                 Button(
@@ -275,7 +289,7 @@ fun SearchScreen(
                             readOnly = true,
                             label = { Text("اختر ملف القضية المستهدفة") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseDropdownExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         )
                         ExposedDropdownMenu(
                             expanded = caseDropdownExpanded,
@@ -297,19 +311,19 @@ fun SearchScreen(
             }
             2 -> { // Search inside client
                 if (clients.isEmpty()) {
-                    Text("⚠️ لا يوجد عملاء مسجلين للتصفية عليهم.", color = Color.Red, fontSize = 12.sp)
+                    Text("⚠️ لا يوجد موكلون مسجلون للتصفية عليهم.", color = Color.Red, fontSize = 12.sp)
                 } else {
                     ExposedDropdownMenuBox(
                         expanded = clientDropdownExpanded,
                         onExpandedChange = { clientDropdownExpanded = !clientDropdownExpanded }
                     ) {
                         OutlinedTextField(
-                            value = clients.getOrNull(boundClientIndex)?.name ?: "اختر العميل للتصفية",
+                            value = clients.getOrNull(boundClientIndex)?.name ?: "اختر الموكل للتصفية",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("اختر اسم العميل المستهدف") },
+                            label = { Text("اختر اسم الموكل المستهدف") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = clientDropdownExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         )
                         ExposedDropdownMenu(
                             expanded = clientDropdownExpanded,
@@ -343,7 +357,7 @@ fun SearchScreen(
                             readOnly = true,
                             label = { Text("1. حدد القضية المرتبطة") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseDropdownExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         )
                         ExposedDropdownMenu(
                             expanded = caseDropdownExpanded,
@@ -376,7 +390,7 @@ fun SearchScreen(
                                 readOnly = true,
                                 label = { Text("2. اختر المستند الفردي للبحث فيه") },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fileDropdownExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor()
+                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             )
                             ExposedDropdownMenu(
                                 expanded = fileDropdownExpanded,
@@ -401,7 +415,7 @@ fun SearchScreen(
 
         if (normalizedQuery.isNotEmpty()) {
             Text(
-                text = "نتائج محلية: عملاء (${matchedClients.size}) | قضايا (${matchedCases.size}) | جلسات (${matchedSessions.size}) | مهام (${matchedTasks.size}) | قوالب (${matchedTemplates.size}) | مستندات مولدة (${matchedGeneratedDocs.size})",
+                text = "نتائج محلية: موكلون (${matchedClients.size}) | قضايا (${matchedCases.size}) | جلسات (${matchedSessions.size}) | مهام (${matchedTasks.size}) | قوالب (${matchedTemplates.size}) | مستندات مولدة (${matchedGeneratedDocs.size})",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = LegalNavyPrimary,
@@ -409,7 +423,7 @@ fun SearchScreen(
             )
 
             if (matchedClients.isNotEmpty()) {
-                Text("مطابقات العملاء", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = LegalNavyPrimary)
+                Text("مطابقات الموكلين", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = LegalNavyPrimary)
                 matchedClients.forEach { client ->
                     Card(
                         modifier = Modifier
@@ -423,7 +437,7 @@ fun SearchScreen(
                             supportingContent = {
                                 Text("هاتف: ${client.phone}${if (client.notes.isNotBlank()) " | ملاحظات متاحة" else ""}", fontSize = 12.sp)
                             },
-                            trailingContent = { Icon(Icons.Default.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
                         )
                     }
                 }
@@ -445,7 +459,7 @@ fun SearchScreen(
                             supportingContent = {
                                 Text("رقم ${legalCase.caseNumber}/${legalCase.caseYear} | ${legalCase.caseType} | ${legalCase.clientName}", fontSize = 12.sp)
                             },
-                            trailingContent = { Icon(Icons.Default.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
                         )
                     }
                 }
@@ -464,7 +478,7 @@ fun SearchScreen(
                         ListItem(
                             headlineContent = { Text(session.title, fontWeight = FontWeight.Bold) },
                             supportingContent = { Text("${session.caseTitle} | ${session.date} ${session.time}", fontSize = 12.sp) },
-                            trailingContent = { Icon(Icons.Default.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
                         )
                     }
                 }
@@ -483,7 +497,7 @@ fun SearchScreen(
                         ListItem(
                             headlineContent = { Text(task.title, fontWeight = FontWeight.Bold) },
                             supportingContent = { Text("${task.caseTitle ?: "بدون قضية"} | استحقاق: ${task.dueDate}", fontSize = 12.sp) },
-                            trailingContent = { Icon(Icons.Default.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
                         )
                     }
                 }
@@ -502,7 +516,7 @@ fun SearchScreen(
                         ListItem(
                             headlineContent = { Text(template.title, fontWeight = FontWeight.Bold) },
                             supportingContent = { Text("${template.category} | ${template.caseType}", fontSize = 12.sp) },
-                            trailingContent = { Icon(Icons.Default.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
                         )
                     }
                 }
@@ -522,7 +536,7 @@ fun SearchScreen(
                         ListItem(
                             headlineContent = { Text(doc.documentTitle, fontWeight = FontWeight.Bold) },
                             supportingContent = { Text("قضية: ${linkedCase?.title ?: doc.caseId}", fontSize = 12.sp) },
-                            trailingContent = { Icon(Icons.Default.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp)) }
                         )
                     }
                 }
@@ -583,7 +597,7 @@ fun SearchScreen(
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("ملف القضية: ${file.caseTitle}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.DarkGray)
-                        Text("العميل المرتبط: ${file.clientName}", fontSize = 12.sp, color = Color.Gray)
+                        Text("الموكل المرتبط: ${file.clientName}", fontSize = 12.sp, color = Color.Gray)
                         
                         // Snippet Card Preview
                         Spacer(modifier = Modifier.height(6.dp))
@@ -609,7 +623,7 @@ fun SearchScreen(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(14.dp))
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("عرض وفتح الملف", fontSize = 11.sp)
                             }
@@ -630,7 +644,7 @@ fun SearchScreen(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Default.Notes, null, modifier = Modifier.size(14.dp))
+                                Icon(Icons.AutoMirrored.Filled.Notes, null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("حفظ كمذكرة بالدعوى", fontSize = 11.sp)
                             }

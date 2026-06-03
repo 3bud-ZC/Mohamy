@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.os.Build
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -9,6 +10,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -38,16 +40,19 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import com.example.MainActivity
 import com.example.data.*
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalNavyPrimary
 import com.example.ui.theme.LegalGoldLight
+import com.example.ui.theme.legalScreenBackground
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import org.json.JSONObject
 import org.json.JSONArray
 import com.example.ui.screens.*
+import kotlinx.coroutines.flow.flowOf
 
 fun getUriMetadata(context: android.content.Context, uri: Uri): Pair<String, Long> {
     var rawName = "doc_" + System.currentTimeMillis() + ".txt"
@@ -128,22 +133,94 @@ fun MainLayout(viewModel: AppViewModel) {
         val context = LocalContext.current
         val hostActivity = remember(context) { context.findHostActivity() }
         val activeScreen = viewModel.currentScreen
+        val shouldCollectWorkspaceData = activeScreen !is Screen.Splash && activeScreen !is Screen.Activation
+        val notificationPermissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (!granted) {
+                viewModel.globalInfoMsg = "يمكنك تفعيل إشعارات الهاتف لاحقاً من إعدادات الجهاز أو داخل التطبيق."
+            }
+        }
+        var notificationPermissionRequested by remember { mutableStateOf(false) }
+
+        BackHandler(enabled = activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
+            if (!viewModel.goBack()) {
+                if (activeScreen != Screen.Dashboard) {
+                    viewModel.navigateTo(Screen.Dashboard, addToBackStack = false)
+                } else {
+                    hostActivity?.finish()
+                }
+            }
+        }
 
         // Observe Room states
-        val clients by viewModel.allClients.collectAsState()
-        val cases by viewModel.allCases.collectAsState()
-        val archivedList by viewModel.archivedCases.collectAsState()
-        val sessions by viewModel.allSessions.collectAsState()
-        val tasks by viewModel.allTasks.collectAsState()
-        val files by viewModel.allFiles.collectAsState()
-        val templates by viewModel.allTemplates.collectAsState()
-        val generatedDocs by viewModel.allGeneratedDocuments.collectAsState()
-        val licenseObj by viewModel.licenseState.collectAsState()
+        val clientsFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allClients else flowOf(emptyList<Client>())
+        }
+        val casesFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allCases else flowOf(emptyList<LegalCase>())
+        }
+        val archivedCasesFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.archivedCases else flowOf(emptyList<LegalCase>())
+        }
+        val sessionsFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allSessions else flowOf(emptyList<CaseSession>())
+        }
+        val tasksFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allTasks else flowOf(emptyList<LegalTask>())
+        }
+        val filesFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allFiles else flowOf(emptyList<CaseFile>())
+        }
+        val clientInteractionsFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allClientInteractions else flowOf(emptyList<ClientInteraction>())
+        }
+        val templatesFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allTemplates else flowOf(emptyList<LegalTemplate>())
+        }
+        val generatedDocsFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allGeneratedDocuments else flowOf(emptyList<GeneratedDocument>())
+        }
+        val customCategoriesFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.allCustomCaseCategories else flowOf(emptyList<CustomCaseCategory>())
+        }
+        val licenseFlow = remember(activeScreen, shouldCollectWorkspaceData) {
+            if (shouldCollectWorkspaceData) viewModel.licenseState else flowOf<LicenseCache?>(null)
+        }
+
+        val clients by clientsFlow.collectAsState(initial = emptyList())
+        val cases by casesFlow.collectAsState(initial = emptyList())
+        val archivedList by archivedCasesFlow.collectAsState(initial = emptyList())
+        val sessions by sessionsFlow.collectAsState(initial = emptyList())
+        val tasks by tasksFlow.collectAsState(initial = emptyList())
+        val files by filesFlow.collectAsState(initial = emptyList())
+        val clientInteractions by clientInteractionsFlow.collectAsState(initial = emptyList())
+        val templates by templatesFlow.collectAsState(initial = emptyList())
+        val generatedDocs by generatedDocsFlow.collectAsState(initial = emptyList())
+        val customCategories by customCategoriesFlow.collectAsState(initial = emptyList())
+        val licenseObj by licenseFlow.collectAsState(initial = null)
 
         LaunchedEffect(viewModel.appReloadNonce) {
             if (viewModel.appReloadNonce > 0) {
                 viewModel.consumeAppReload()
-                hostActivity?.recreate()
+                hostActivity?.let { activity ->
+                    val restartIntent = Intent(activity, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    }
+                    activity.startActivity(restartIntent)
+                    activity.finish()
+                }
+            }
+        }
+
+        LaunchedEffect(activeScreen) {
+            if (!notificationPermissionRequested && activeScreen !is Screen.Splash && activeScreen !is Screen.Activation) {
+                notificationPermissionRequested = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    !com.example.data.AppNotificationManager.hasNotificationPermission(context)
+                ) {
+                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         }
 
@@ -152,8 +229,10 @@ fun MainLayout(viewModel: AppViewModel) {
         var pendingImportSize by remember { mutableStateOf(0L) }
         var pendingImportType by remember { mutableStateOf("عقد") }
         var pendingImportCustomType by remember { mutableStateOf("") }
+        var pendingImportLinkedSessionId by remember { mutableStateOf<Int?>(null) }
         var showImportDialog by remember { mutableStateOf(false) }
         var typeDropdownExpanded by remember { mutableStateOf(false) }
+        var sessionDropdownExpanded by remember { mutableStateOf(false) }
 
         // Handle File Pickers
         val fileImportLauncher = rememberLauncherForActivityResult(
@@ -164,8 +243,9 @@ fun MainLayout(viewModel: AppViewModel) {
                 pendingImportUri = it
                 pendingImportName = resolved.first
                 pendingImportSize = resolved.second
-                pendingImportType = "عقد"
+                pendingImportType = viewModel.suggestDocumentType(resolved.first)
                 pendingImportCustomType = ""
+                pendingImportLinkedSessionId = null
                 showImportDialog = true
             }
         }
@@ -182,6 +262,7 @@ fun MainLayout(viewModel: AppViewModel) {
         }
 
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 if (activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
                     TopAppBar(
@@ -221,10 +302,14 @@ fun MainLayout(viewModel: AppViewModel) {
                         },
                         navigationIcon = {
                             if (activeScreen != Screen.Dashboard) {
-                                IconButton(onClick = { viewModel.navigateTo(Screen.Dashboard) }) {
+                                IconButton(onClick = {
+                                    if (!viewModel.goBack()) {
+                                        viewModel.navigateTo(Screen.Dashboard, addToBackStack = false)
+                                    }
+                                }) {
                                     Icon(
-                                        imageVector = Icons.Default.Home,
-                                        contentDescription = "الرئيسية",
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "رجوع",
                                         tint = MaterialTheme.colorScheme.onPrimary
                                     )
                                 }
@@ -235,53 +320,91 @@ fun MainLayout(viewModel: AppViewModel) {
             },
             bottomBar = {
                 if (activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 8.dp,
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 10.dp,
+                        shadowElevation = 8.dp,
+                        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
                         modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
                     ) {
-                        val navColors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = LegalNavyPrimary,
-                            selectedTextColor = LegalNavyPrimary,
-                            indicatorColor = LegalGoldSecondary.copy(alpha = 0.25f),
-                            unselectedIconColor = Color.Gray,
-                            unselectedTextColor = Color.Gray
-                        )
-                        NavigationBarItem(
-                            selected = activeScreen is Screen.Dashboard,
-                            onClick = { viewModel.navigateTo(Screen.Dashboard) },
-                            icon = { Icon(Icons.Default.Dashboard, "لوحة التحكم") },
-                            label = { Text("المكتب", fontSize = 11.sp) },
-                            colors = navColors
-                        )
-                        NavigationBarItem(
-                            selected = activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails,
-                            onClick = { viewModel.navigateTo(Screen.CasesList) },
-                            icon = { Icon(Icons.Default.Gavel, "القضايا") },
-                            label = { Text("القضايا", fontSize = 11.sp) },
-                            colors = navColors
-                        )
-                        NavigationBarItem(
-                            selected = activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails,
-                            onClick = { viewModel.navigateTo(Screen.ClientsList) },
-                            icon = { Icon(Icons.Default.People, "العملاء") },
-                            label = { Text("العملاء", fontSize = 11.sp) },
-                            colors = navColors
-                        )
-                        NavigationBarItem(
-                            selected = activeScreen is Screen.SessionsList,
-                            onClick = { viewModel.navigateTo(Screen.SessionsList) },
-                            icon = { Icon(Icons.Default.CalendarToday, "الجلسات") },
-                            label = { Text("الجلسات", fontSize = 11.sp) },
-                            colors = navColors
-                        )
-                        NavigationBarItem(
-                            selected = activeScreen is Screen.TasksList,
-                            onClick = { viewModel.navigateTo(Screen.TasksList) },
-                            icon = { Icon(Icons.Default.Task, "المهام") },
-                            label = { Text("المهام", fontSize = 11.sp) },
-                            colors = navColors
-                        )
+                        NavigationBar(
+                            containerColor = Color.Transparent,
+                            tonalElevation = 0.dp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        ) {
+                            val navColors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = LegalNavyPrimary,
+                                selectedTextColor = LegalNavyPrimary,
+                                indicatorColor = LegalGoldSecondary.copy(alpha = 0.24f),
+                                unselectedIconColor = Color.Gray,
+                                unselectedTextColor = Color.Gray
+                            )
+                            NavigationBarItem(
+                                selected = activeScreen is Screen.FilesLibrary || activeScreen is Screen.Search,
+                                onClick = { viewModel.navigateTo(Screen.FilesLibrary) },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.FolderCopy,
+                                        "مكتبة الملفات"
+                                    )
+                                },
+                                label = { Text("المكتبة", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                alwaysShowLabel = true,
+                                colors = navColors
+                            )
+                            NavigationBarItem(
+                                selected = activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit,
+                                onClick = { viewModel.navigateTo(Screen.CasesList) },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Gavel,
+                                        "القضايا"
+                                    )
+                                },
+                                label = { Text("القضايا", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                alwaysShowLabel = true,
+                                colors = navColors
+                            )
+                            NavigationBarItem(
+                                selected = activeScreen is Screen.SmartAssistant,
+                                onClick = { viewModel.navigateTo(Screen.SmartAssistant) },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.AutoAwesome,
+                                        "المساعد الذكي"
+                                    )
+                                },
+                                label = { Text("المساعد", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                alwaysShowLabel = true,
+                                colors = navColors
+                            )
+                            NavigationBarItem(
+                                selected = activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit,
+                                onClick = { viewModel.navigateTo(Screen.ClientsList) },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.People,
+                                        "الموكلون"
+                                    )
+                                },
+                                label = { Text("الموكلون", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                alwaysShowLabel = true,
+                                colors = navColors
+                            )
+                            NavigationBarItem(
+                                selected = activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit,
+                                onClick = { viewModel.navigateTo(Screen.SessionsList) },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.CalendarToday,
+                                        "الجلسات"
+                                    )
+                                },
+                                label = { Text("الجلسات", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                alwaysShowLabel = true,
+                                colors = navColors
+                            )
+                        }
                     }
                 }
             }
@@ -289,6 +412,7 @@ fun MainLayout(viewModel: AppViewModel) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .legalScreenBackground()
                     .padding(innerPadding)
             ) {
                 // Main Switch Routing UI Screen Rendering
@@ -311,11 +435,11 @@ fun MainLayout(viewModel: AppViewModel) {
                             files
                         )
                         is Screen.ClientsList -> ClientsListScreen(viewModel, clients)
-                        is Screen.ClientDetails -> ClientDetailsScreen(screen.clientId, viewModel, clients, cases)
+                        is Screen.ClientDetails -> ClientDetailsScreen(screen.clientId, viewModel, clients, cases, files, sessions, clientInteractions)
                         is Screen.ClientAddEdit -> ClientAddEditScreen(screen.clientId, viewModel, clients)
-                        is Screen.CasesList -> CasesListScreen(viewModel, cases, archivedList)
+                        is Screen.CasesList -> CasesListScreen(viewModel, cases, archivedList, customCategories)
                         is Screen.CaseDetails -> CaseDetailsScreen(screen.caseId, viewModel, cases, sessions, tasks, files, generatedDocs, fileImportLauncher)
-                        is Screen.CaseAddEdit -> CaseAddEditScreen(screen.caseId, viewModel, clients)
+                        is Screen.CaseAddEdit -> CaseAddEditScreen(screen.caseId, viewModel, clients, customCategories)
                         is Screen.SessionsList -> SessionsListScreen(viewModel, sessions, cases)
                         is Screen.SessionAddEdit -> SessionAddEditScreen(screen.sessionId, screen.presetCaseId, viewModel, cases)
                         is Screen.TasksList -> TasksListScreen(viewModel, tasks, cases)
@@ -323,8 +447,17 @@ fun MainLayout(viewModel: AppViewModel) {
                         is Screen.LegalTemplatesList -> LegalTemplatesScreen(viewModel, templates)
                         is Screen.TemplateForm -> TemplateFormScreen(screen.templateId, screen.presetCaseId, viewModel, templates, cases)
                         is Screen.BackupRestore -> BackupRestoreScreen(viewModel, dbRestoreLauncher)
-                        is Screen.Settings -> SettingsScreen(viewModel, licenseObj)
+                        is Screen.Settings -> SettingsScreen(
+                            viewModel,
+                            licenseObj,
+                            onRequestNotificationPermission = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+                        )
                         is Screen.Search -> SearchScreen(viewModel, files, cases, clients, sessions, tasks, templates, generatedDocs)
+                        is Screen.FilesLibrary -> FilesLibraryScreen(viewModel, files, cases, clients)
                         is Screen.SmartAssistant -> SmartAssistantScreen(viewModel, cases, files, templates)
                         is Screen.ImportData -> ImportDataScreen(viewModel)
                     }
@@ -333,8 +466,13 @@ fun MainLayout(viewModel: AppViewModel) {
                 if (showImportDialog && pendingImportUri != null) {
                     val caseObj = viewModel.activeCase
                     if (caseObj != null) {
+                        val caseSessions = sessions.filter { it.caseId == caseObj.id }
                         AlertDialog(
-                            onDismissRequest = { showImportDialog = false },
+                            onDismissRequest = {
+                                pendingImportLinkedSessionId = null
+                                sessionDropdownExpanded = false
+                                showImportDialog = false
+                            },
                             title = {
                                 Text(
                                     "تأكيد استيراد وأرشفة مستند 📄",
@@ -374,7 +512,7 @@ fun MainLayout(viewModel: AppViewModel) {
 
                                     Text("تحديد تصنيف المستند القانوني:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     
-                                    val docTypesList = listOf("عقد", "توكيل", "محضر", "حكم", "عريضة دعوى", "أخرى")
+                                    val docTypesList = listOf("مستند", "عقد", "توكيل", "محضر", "حكم", "مذكرة", "عريضة دعوى", "هوية", "إيصال", "صورة مستند", "أخرى")
                                     Box(modifier = Modifier.fillMaxWidth()) {
                                         ExposedDropdownMenuBox(
                                             expanded = typeDropdownExpanded,
@@ -385,7 +523,7 @@ fun MainLayout(viewModel: AppViewModel) {
                                                 onValueChange = {},
                                                 readOnly = true,
                                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeDropdownExpanded) },
-                                                modifier = Modifier.fillMaxWidth().menuAnchor()
+                                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                             )
                                             ExposedDropdownMenu(
                                                 expanded = typeDropdownExpanded,
@@ -413,6 +551,46 @@ fun MainLayout(viewModel: AppViewModel) {
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     }
+
+                                    if (caseSessions.isNotEmpty()) {
+                                        Text("ربط المستند بجلسة", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        ExposedDropdownMenuBox(
+                                            expanded = sessionDropdownExpanded,
+                                            onExpandedChange = { sessionDropdownExpanded = !sessionDropdownExpanded }
+                                        ) {
+                                            OutlinedTextField(
+                                                value = pendingImportLinkedSessionId
+                                                    ?.let { selectedId -> caseSessions.find { it.id == selectedId } }
+                                                    ?.let { "${it.title} - ${it.date}" }
+                                                    ?: "بدون ربط بجلسة",
+                                                onValueChange = {},
+                                                readOnly = true,
+                                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sessionDropdownExpanded) },
+                                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                            )
+                                            ExposedDropdownMenu(
+                                                expanded = sessionDropdownExpanded,
+                                                onDismissRequest = { sessionDropdownExpanded = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("بدون ربط بجلسة") },
+                                                    onClick = {
+                                                        pendingImportLinkedSessionId = null
+                                                        sessionDropdownExpanded = false
+                                                    }
+                                                )
+                                                caseSessions.forEach { session ->
+                                                    DropdownMenuItem(
+                                                        text = { Text("${session.title} - ${session.date}") },
+                                                        onClick = {
+                                                            pendingImportLinkedSessionId = session.id
+                                                            sessionDropdownExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             },
                             confirmButton = {
@@ -429,8 +607,11 @@ fun MainLayout(viewModel: AppViewModel) {
                                             fileName = pendingImportName,
                                             fileUri = pendingImportUri!!,
                                             docType = finalDocType,
-                                            docLength = pendingImportSize
+                                            docLength = pendingImportSize,
+                                            linkedSessionId = pendingImportLinkedSessionId
                                         )
+                                        pendingImportLinkedSessionId = null
+                                        sessionDropdownExpanded = false
                                         showImportDialog = false
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
@@ -440,7 +621,11 @@ fun MainLayout(viewModel: AppViewModel) {
                                 }
                             },
                             dismissButton = {
-                                TextButton(onClick = { showImportDialog = false }) {
+                                TextButton(onClick = {
+                                    pendingImportLinkedSessionId = null
+                                    sessionDropdownExpanded = false
+                                    showImportDialog = false
+                                }) {
                                     Text("إلغاء", color = Color.Gray)
                                 }
                             }
@@ -459,6 +644,23 @@ fun MainLayout(viewModel: AppViewModel) {
                         action = {
                             TextButton(onClick = { viewModel.globalSuccessMsg = null }) {
                                 Text("حسناً", color = MaterialTheme.colorScheme.primaryContainer)
+                            }
+                        }
+                    ) {
+                        Text(msg)
+                    }
+                }
+
+                viewModel.globalInfoMsg?.let { msg ->
+                    Snackbar(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(16.dp),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        action = {
+                            TextButton(onClick = { viewModel.globalInfoMsg = null }) {
+                                Text("حسناً", color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                         }
                     ) {

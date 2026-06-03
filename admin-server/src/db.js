@@ -76,6 +76,8 @@ async function getDb() {
     );
   `);
 
+  await db.run('UPDATE licenses SET max_devices = 1, expires_at = NULL WHERE max_devices IS NULL OR max_devices <> 1 OR expires_at IS NOT NULL');
+
   const bootstrapAdmin = resolveBootstrapAdmin();
   const admin = await db.get('SELECT id FROM admins WHERE username = ?', bootstrapAdmin.username);
   if (!admin) {

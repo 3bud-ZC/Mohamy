@@ -1,5 +1,6 @@
-﻿package com.example.ui.screens
+package com.example.ui.screens
 import com.example.data.*
+import android.graphics.BitmapFactory
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -8,8 +9,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -34,18 +40,78 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 import com.example.ui.formatFileSize
 import com.example.ui.openCaseFile
+import kotlinx.coroutines.delay
+
+private fun casePriorityRank(priority: String): Int = when (priority) {
+    "عالية" -> 0
+    "متوسطة" -> 1
+    else -> 2
+}
 
 @Composable
-fun CasesListScreen(viewModel: AppViewModel, activeCases: List<LegalCase>, archivedCases: List<LegalCase>) {
+private fun FeeSummaryCard(title: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
+            Text(title, fontSize = 11.sp, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun CasesListScreen(
+    viewModel: AppViewModel,
+    activeCases: List<LegalCase>,
+    archivedCases: List<LegalCase>,
+    customCategories: List<CustomCaseCategory>
+) {
     var searchTxt by remember { mutableStateOf("") }
     var showingArchived by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("الكل") }
+    val normalizedSearch = remember(searchTxt) { viewModel.repository.normalizeArabic(searchTxt) }
+
+    val allCategories = remember(customCategories) {
+        (listOf("الكل") + viewModel.repository.fixedCaseCategories() + customCategories.map { it.name.trim() })
+            .filter { it.isNotBlank() }
+            .distinctBy { viewModel.repository.normalizeArabic(it) }
+    }
 
     val listToFilter = if (showingArchived) archivedCases else activeCases
-    val filtered = listToFilter.filter {
-        it.title.contains(searchTxt) || it.caseNumber.contains(searchTxt) || it.opponentName.contains(searchTxt)
+    val filtered = remember(listToFilter, normalizedSearch, selectedCategory) {
+        listToFilter
+            .filter {
+                val searchableText = viewModel.repository.normalizeArabic(
+                    listOf(
+                        it.title,
+                        it.caseNumber,
+                        it.caseYear,
+                        it.opponentName,
+                        it.clientName,
+                        it.courtName,
+                        it.courtCircle,
+                        it.summary,
+                        it.status,
+                        it.caseType
+                    ).joinToString(" ")
+                )
+                val matchesSearch = normalizedSearch.isBlank() || searchableText.contains(normalizedSearch)
+                val matchesCategory = selectedCategory == "الكل" ||
+                    viewModel.repository.normalizeArabic(it.caseType) == viewModel.repository.normalizeArabic(selectedCategory)
+                matchesSearch && matchesCategory
+            }
+            .sortedWith(
+                compareBy<LegalCase> { casePriorityRank(it.priority) }
+                    .thenBy { if (showingArchived) "9999-12-31" else it.nextSessionDate.ifBlank { "9999-12-31" } }
+                    .thenByDescending { it.createdDate }
+            )
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         floatingActionButton = {
             if (!showingArchived) {
                 FloatingActionButton(
@@ -61,9 +127,27 @@ fun CasesListScreen(viewModel: AppViewModel, activeCases: List<LegalCase>, archi
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .legalScreenBackground()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("ملفات القضايا", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
+                    Text(
+                        "نشطة: ${activeCases.size} | مؤرشفة: ${archivedCases.size}",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
             // Tab Header select active vs archived
             Row(
                 modifier = Modifier
@@ -101,7 +185,32 @@ fun CasesListScreen(viewModel: AppViewModel, activeCases: List<LegalCase>, archi
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Search, null) }
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                allCategories.forEach { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { selectedCategory = category },
+                        label = { Text(category) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = LegalNavyPrimary,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "النتائج الحالية: ${filtered.size}",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (filtered.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -139,10 +248,13 @@ fun CasesListScreen(viewModel: AppViewModel, activeCases: List<LegalCase>, archi
                                 },
                                 headlineContent = { Text(item.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary, fontSize = 16.sp) },
                                 supportingContent = { 
+                                    val readiness = viewModel.caseReadinessScore(item)
                                     Column(modifier = Modifier.padding(top = 4.dp)) {
                                         Text("دعوى ${item.caseType} | رقم ${item.caseNumber} لسنة ${item.caseYear}", color = Color.Gray, fontSize = 13.sp) 
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text("الخصم: ${item.opponentName}", color = Color.DarkGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text("جاهزية الملف: $readiness% - ${viewModel.caseReadinessLabel(item)}", color = Color.DarkGray, fontSize = 12.sp)
                                     }
                                 },
                                 trailingContent = {
@@ -194,6 +306,8 @@ fun CaseDetailsScreen(
     val caseTasks = tasks.filter { it.caseId == caseId }
     val caseFiles = files.filter { it.caseId == caseId }
     val caseDocs = generatedDocs.filter { it.caseId == caseId }
+    val feeRecords by viewModel.allFeeRecords.collectAsState(initial = emptyList())
+    val caseFees = feeRecords.filter { it.caseId == caseId }
 
     if (legalCase == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -217,10 +331,19 @@ fun CaseDetailsScreen(
     var activeEditingFile by remember { mutableStateOf<CaseFile?>(null) }
     var fileManualTextInput by remember { mutableStateOf("") }
     var fileDetailDialogShowing by remember { mutableStateOf(false) }
+    var feeTitle by remember(caseId) { mutableStateOf("") }
+    var feeTotalText by remember(caseId) { mutableStateOf("") }
+    var feePaidText by remember(caseId) { mutableStateOf("") }
+    var feeDueDate by remember(caseId) { mutableStateOf("") }
+    var feeStatus by remember(caseId) { mutableStateOf("مستحقة") }
+    var feeCurrency by remember(caseId) { mutableStateOf("ج.م") }
+    var feeNotes by remember(caseId) { mutableStateOf("") }
+    val readinessScore = viewModel.caseReadinessScore(legalCase)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .legalScreenBackground()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -297,40 +420,78 @@ fun CaseDetailsScreen(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("الدائرة: ${legalCase.courtCircle}", fontSize = 13.sp, color = Color.White.copy(alpha = 0.9f))
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("جاهزية القضية: $readinessScore% - ${viewModel.caseReadinessLabel(legalCase)}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = readinessScore / 100f,
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp)),
+                    color = LegalGoldSecondary,
+                    trackColor = Color.White.copy(alpha = 0.18f)
+                )
             }
         }
 
         // Action Toolbar
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Button(
-                onClick = { viewModel.navigateTo(Screen.CaseAddEdit(legalCase.id)) },
-                colors = ButtonDefaults.buttonColors(containerColor = LegalGoldSecondary),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f).height(50.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Edit, "تعديل", tint = LegalNavyPrimary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("تعديل", color = LegalNavyPrimary, fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = { viewModel.navigateTo(Screen.CaseAddEdit(legalCase.id)) },
+                    colors = ButtonDefaults.buttonColors(containerColor = LegalGoldSecondary),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).height(50.dp)
+                ) {
+                    Icon(Icons.Default.Edit, "تعديل", tint = LegalNavyPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تعديل", color = LegalNavyPrimary, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = {
+                        val archiveState = !legalCase.isArchived
+                        viewModel.saveCase(legalCase.copy(isArchived = archiveState)) {
+                            viewModel.navigateTo(Screen.CasesList)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (legalCase.isArchived) LegalNavyPrimary else LegalSlateDark),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).height(50.dp)
+                ) {
+                    Icon(if (legalCase.isArchived) Icons.Default.Unarchive else Icons.Default.Archive, "أرشفة", tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (legalCase.isArchived) "تنشيط" else "أرشفة", color = Color.White, fontWeight = FontWeight.Bold)
+                }
             }
             Button(
                 onClick = {
-                    val archiveState = !legalCase.isArchived
-                    viewModel.saveCase(legalCase.copy(isArchived = archiveState)) {
-                        viewModel.navigateTo(Screen.CasesList)
+                    viewModel.exportCaseBundle(legalCase) { bundle ->
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            bundle
+                        )
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/zip"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "تصدير ملف القضية الكامل"))
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = if (legalCase.isArchived) LegalNavyPrimary else LegalSlateDark),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f).height(50.dp)
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(if (legalCase.isArchived) Icons.Default.Unarchive else Icons.Default.Archive, "أرشفة", tint = Color.White)
+                Icon(Icons.Default.FolderZip, null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (legalCase.isArchived) "تنشيط" else "أرشفة", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("تصدير ملف القضية كاملاً", fontWeight = FontWeight.Bold)
             }
         }
 
@@ -441,7 +602,97 @@ fun CaseDetailsScreen(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                     ) {
-                        Text("Checklist", fontSize = 10.sp)
+                        Text("قائمة التحقق", fontSize = 10.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Button(
+                        onClick = {
+                            viewModel.getSessionPrepAssistant(legalCase.id) {
+                                assistantMatchedFileId = null
+                                smartAssistantResult = it
+                                smartAssistantShowing = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("تجهيز الجلسة", fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.draftCaseMemo(legalCase.id) {
+                                assistantMatchedFileId = null
+                                smartAssistantResult = it
+                                smartAssistantShowing = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("مسودة مذكرة", fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.answerCaseQuestion(legalCase.id, "readiness") {
+                                assistantMatchedFileId = null
+                                smartAssistantResult = it
+                                smartAssistantShowing = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("سؤال: الجاهزية", fontSize = 10.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Button(
+                        onClick = {
+                            viewModel.answerCaseQuestion(legalCase.id, "last_session") {
+                                assistantMatchedFileId = null
+                                smartAssistantResult = it
+                                smartAssistantShowing = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("آخر جلسة", fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.answerCaseQuestion(legalCase.id, "opponent") {
+                                assistantMatchedFileId = null
+                                smartAssistantResult = it
+                                smartAssistantShowing = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("سؤال: الخصم", fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.answerCaseQuestion(legalCase.id, "missing_docs") {
+                                assistantMatchedFileId = null
+                                smartAssistantResult = it
+                                smartAssistantShowing = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("سؤال: النواقص", fontSize = 10.sp)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -495,6 +746,7 @@ fun CaseDetailsScreen(
             Tab(selected = activeTab == 2, onClick = { activeTab = 2 }) { Text("المستندات (${caseFiles.size})", modifier = Modifier.padding(12.dp), fontSize = 13.sp) }
             Tab(selected = activeTab == 3, onClick = { activeTab = 3 }) { Text("المستندات المولدة (${caseDocs.size})", modifier = Modifier.padding(12.dp), fontSize = 13.sp) }
             Tab(selected = activeTab == 4, onClick = { activeTab = 4 }) { Text("مذكرة القضية", modifier = Modifier.padding(12.dp), fontSize = 13.sp) }
+            Tab(selected = activeTab == 5, onClick = { activeTab = 5 }) { Text("الأتعاب (${caseFees.size})", modifier = Modifier.padding(12.dp), fontSize = 13.sp) }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -604,6 +856,7 @@ fun CaseDetailsScreen(
                     }
                 } else {
                     caseFiles.forEach { f ->
+                        val linkedSession = caseSessions.find { it.id == f.linkedSessionId }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -618,7 +871,14 @@ fun CaseDetailsScreen(
                             ListItem(
                                 leadingContent = { Icon(imageVector = Icons.Default.FileCopy, contentDescription = "ملف", tint = LegalGoldSecondary) },
                                 headlineContent = { Text(f.fileName, fontWeight = FontWeight.Bold) },
-                                supportingContent = { Text("التصنيف: ${f.docType} | الحجم: ${formatFileSize(f.fileLength)}") },
+                                supportingContent = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("التصنيف: ${f.docType} | الحجم: ${formatFileSize(f.fileLength)}")
+                                        if (linkedSession != null) {
+                                            Text("مرتبط بجلسة: ${linkedSession.title} - ${linkedSession.date}", fontSize = 11.sp, color = Color.Gray)
+                                        }
+                                    }
+                                },
                                 trailingContent = {
                                     IconButton(onClick = { viewModel.deleteFile(f) }) {
                                         Icon(Icons.Default.Delete, "حذف", tint = Color.Red)
@@ -631,6 +891,7 @@ fun CaseDetailsScreen(
 
                 if (fileDetailDialogShowing && activeEditingFile != null) {
                     val editingF = activeEditingFile!!
+                    val linkedSession = caseSessions.find { it.id == editingF.linkedSessionId }
                     AlertDialog(
                         onDismissRequest = { fileDetailDialogShowing = false },
                         title = {
@@ -662,12 +923,15 @@ fun CaseDetailsScreen(
                                         Text(formatFileSize(editingF.fileLength), fontWeight = FontWeight.SemiBold)
                                     }
                                 }
+                                if (linkedSession != null) {
+                                    Text("الجلسة المرتبطة", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.Gray)
+                                    Text("${linkedSession.title} - ${linkedSession.date}", fontWeight = FontWeight.SemiBold)
+                                }
                                 Text("حالة استخراج وفهرسة النص تلقائياً:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Gray)
-                                val isTxtExtracted = editingF.fileName.lowercase().endsWith(".txt")
-                                if (isTxtExtracted) {
-                                    Text("مكتمل ومستخرج بنجاح ✅", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                if (editingF.extractionStatus.contains("جاهز") || editingF.extractedText.isNotBlank()) {
+                                    Text(editingF.extractionStatus, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 } else {
-                                    Text("غير مدعوم للبحث في هذه النسخة (يمكنك كتابة نص يدوي للفهرسة بالأسفل) ⚠️", color = Color(0xFFD84315), fontSize = 12.sp)
+                                    Text("${editingF.extractionStatus} - يمكنك كتابة نص يدوي للفهرسة بالأسفل.", color = Color(0xFFD84315), fontSize = 12.sp)
                                 }
 
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -701,7 +965,7 @@ fun CaseDetailsScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
                             ) {
-                                Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("عرض وفتح الملف")
                             }
@@ -770,6 +1034,32 @@ fun CaseDetailsScreen(
                                             Text("نسخ النص")
                                         }
                                         OutlinedButton(
+                                            onClick = {
+                                                DocumentExportManager.exportToWord(context, doc.documentTitle, doc.content)
+                                                    .onSuccess {
+                                                        Toast.makeText(context, "تم حفظ نسخة Word: ${it.name}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                    .onFailure {
+                                                        Toast.makeText(context, it.message ?: "فشل تصدير Word", Toast.LENGTH_SHORT).show()
+                                                    }
+                                            }
+                                        ) {
+                                            Text("Word")
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                DocumentExportManager.exportToPdf(context, doc.documentTitle, doc.content)
+                                                    .onSuccess {
+                                                        Toast.makeText(context, "تم حفظ نسخة PDF: ${it.name}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                    .onFailure {
+                                                        Toast.makeText(context, it.message ?: "فشل تصدير PDF", Toast.LENGTH_SHORT).show()
+                                                    }
+                                            }
+                                        ) {
+                                            Text("PDF")
+                                        }
+                                        OutlinedButton(
                                             onClick = { viewModel.deleteGeneratedDocument(doc) }
                                         ) {
                                             Text("حذف", color = Color.Red)
@@ -782,20 +1072,184 @@ fun CaseDetailsScreen(
                 }
             }
             4 -> { // RICH MANUAL NOTES FOR THE LAWYER
-                var notesText by remember { mutableStateOf(legalCase.notes) }
+                var notesText by remember(legalCase.id) { mutableStateOf(legalCase.notes) }
+                var lastSavedNotes by remember(legalCase.id) { mutableStateOf(legalCase.notes) }
+
+                LaunchedEffect(notesText, legalCase.id) {
+                    if (notesText == lastSavedNotes) return@LaunchedEffect
+                    delay(600)
+                    if (notesText != lastSavedNotes) {
+                        lastSavedNotes = notesText
+                        viewModel.saveCase(legalCase.copy(notes = notesText))
+                    }
+                }
+
                 OutlinedTextField(
                     value = notesText,
-                    onValueChange = {
-                        notesText = it
-                        // Autosave case note state updates
-                        viewModel.saveCase(legalCase.copy(notes = it))
-                    },
+                    onValueChange = { notesText = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp),
                     shape = RoundedCornerShape(12.dp),
                     placeholder = { Text("أكتب ملاحظاتك، مرافعاتك وأقوالك بالدعوى وسيقوم التطبيق بحفظها تلقائياً بالملف هنا...") }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "يتم حفظ الملاحظات محلياً بعد توقف الكتابة للحظات لتقليل الضغط على قاعدة البيانات.",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+            5 -> { // FEES TRACKING
+                val totalAgreed = caseFees.sumOf { it.totalAmount }
+                val totalPaid = caseFees.sumOf { it.paidAmount }
+                val totalOutstanding = (totalAgreed - totalPaid).coerceAtLeast(0.0)
+                val overdueCount = caseFees.count { fee ->
+                    val due = try {
+                        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).parse(fee.dueDate)?.time
+                    } catch (_: Exception) {
+                        null
+                    }
+                    due != null && due < System.currentTimeMillis() && fee.paidAmount < fee.totalAmount && fee.status != "مدفوعة"
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FeeSummaryCard(title = "إجمالي الأتعاب", value = String.format(java.util.Locale.ENGLISH, "%.2f", totalAgreed), modifier = Modifier.weight(1f))
+                    FeeSummaryCard(title = "المدفوع", value = String.format(java.util.Locale.ENGLISH, "%.2f", totalPaid), modifier = Modifier.weight(1f))
+                    FeeSummaryCard(title = "المتبقي", value = String.format(java.util.Locale.ENGLISH, "%.2f", totalOutstanding), modifier = Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "السجلات المتأخرة: $overdueCount | عدد السجلات: ${caseFees.size}",
+                    fontWeight = FontWeight.Bold,
+                    color = LegalNavyPrimary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("إضافة سجل أتعاب", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                        OutlinedTextField(
+                            value = feeTitle,
+                            onValueChange = { feeTitle = it },
+                            label = { Text("عنوان السجل") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = feeTotalText,
+                                onValueChange = { feeTotalText = it },
+                                label = { Text("الإجمالي") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            OutlinedTextField(
+                                value = feePaidText,
+                                onValueChange = { feePaidText = it },
+                                label = { Text("المدفوع") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = feeDueDate,
+                                onValueChange = { feeDueDate = it },
+                                label = { Text("تاريخ الاستحقاق YYYY-MM-DD") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = feeCurrency,
+                                onValueChange = { feeCurrency = it },
+                                label = { Text("العملة") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        OutlinedTextField(
+                            value = feeNotes,
+                            onValueChange = { feeNotes = it },
+                            label = { Text("ملاحظات") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                        Button(
+                            onClick = {
+                                val total = feeTotalText.toDoubleOrNull() ?: 0.0
+                                val paid = feePaidText.toDoubleOrNull() ?: 0.0
+                                val status = when {
+                                    paid <= 0.0 -> feeStatus
+                                    paid >= total && total > 0.0 -> "مدفوعة"
+                                    paid > 0.0 -> "جزئية"
+                                    else -> feeStatus
+                                }
+                                viewModel.saveFeeRecord(
+                                    FeeRecord(
+                                        clientId = legalCase.clientId,
+                                        clientName = legalCase.clientName,
+                                        caseId = legalCase.id,
+                                        caseTitle = legalCase.title,
+                                        title = feeTitle.ifBlank { "أتعاب القضية" },
+                                        totalAmount = total,
+                                        paidAmount = paid,
+                                        currency = feeCurrency.ifBlank { "ج.م" },
+                                        dueDate = feeDueDate,
+                                        status = status,
+                                        notes = feeNotes
+                                    )
+                                ) {
+                                    feeTitle = ""
+                                    feeTotalText = ""
+                                    feePaidText = ""
+                                    feeDueDate = ""
+                                    feeCurrency = "ج.م"
+                                    feeNotes = ""
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("حفظ سجل الأتعاب")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                if (caseFees.isEmpty()) {
+                    Text("لا توجد سجلات أتعاب لهذه القضية حالياً.", color = Color.Gray)
+                } else {
+                    caseFees.forEach { fee ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color.LightGray)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(fee.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                                    Text(fee.status, color = LegalGoldSecondary, fontWeight = FontWeight.Bold)
+                                }
+                                Text("الإجمالي: ${fee.totalAmount} ${fee.currency} | المدفوع: ${fee.paidAmount} ${fee.currency}", fontSize = 12.sp)
+                                if (fee.dueDate.isNotBlank()) {
+                                    Text("الاستحقاق: ${fee.dueDate}", fontSize = 12.sp, color = Color.Gray)
+                                }
+                                if (fee.notes.isNotBlank()) {
+                                    Text(fee.notes, fontSize = 12.sp, color = Color.DarkGray)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { viewModel.deleteFeeRecord(fee) }) {
+                                        Text("حذف", color = Color.Red)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -847,7 +1301,12 @@ fun CaseDetailsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Client>) {
+fun CaseAddEditScreen(
+    caseId: Int?,
+    viewModel: AppViewModel,
+    clients: List<Client>,
+    customCategories: List<CustomCaseCategory>
+) {
     val editing = caseId?.let { id -> viewModel.allCases.value.find { it.id == id } ?: viewModel.archivedCases.value.find { it.id == id } }
 
     var title by remember { mutableStateOf(editing?.title ?: "") }
@@ -860,18 +1319,30 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
 
     var caseType by remember { mutableStateOf(editing?.caseType ?: "مدني") }
     var priority by remember { mutableStateOf(editing?.priority ?: "متوسطة") }
-    var selectedClientIndex by remember { mutableStateOf(0) }
+    var newCategoryName by remember { mutableStateOf("") }
+    var selectedClientIndex by remember(editing?.id, clients) {
+        mutableStateOf(
+            clients.indexOfFirst { it.id == editing?.clientId }
+                .takeIf { it >= 0 }
+                ?: 0
+        )
+    }
 
     var clientExpanded by remember { mutableStateOf(false) }
     var caseTypeExpanded by remember { mutableStateOf(false) }
     var priorityExpanded by remember { mutableStateOf(false) }
 
-    val caseTypesList = listOf("أسرة", "إيجارات", "جنائي", "مدني", "تجاري", "عمال", "شركات", "ميراث", "عقارات", "تعويضات", "مرور", "ضرائب", "عقود", "عام")
+    val caseTypesList = remember(customCategories) {
+        (viewModel.repository.fixedCaseCategories() + customCategories.map { it.name.trim() })
+            .filter { it.isNotBlank() }
+            .distinctBy { viewModel.repository.normalizeArabic(it) }
+    }
     val prioritiesList = listOf("عالية", "متوسطة", "منخفضة")
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .legalScreenBackground()
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
@@ -930,7 +1401,7 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
                     Icon(Icons.Default.Warning, null, tint = Color.Red)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "تنبيه: يجب إضافة عميل أولاً لربط القضية به قبل الحفظ والمتابعة.",
+                        text = "تنبيه: يجب إضافة موكل أولاً لربط القضية به قبل الحفظ والمتابعة.",
                         color = Color.Red,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -943,15 +1414,15 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
                 onExpandedChange = { clientExpanded = !clientExpanded }
             ) {
                 OutlinedTextField(
-                    value = clients.getOrNull(selectedClientIndex)?.name ?: "اختر العميل الموكل",
+                    value = clients.getOrNull(selectedClientIndex)?.name ?: "اختر الموكل",
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("العميل الموكل القضية") },
+                    label = { Text("الموكل المرتبط بالقضية") },
                     leadingIcon = { Icon(Icons.Default.Person, null, tint = LegalNavyPrimary) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = clientExpanded) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(),
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = LegalGoldSecondary,
@@ -1057,7 +1528,7 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseTypeExpanded) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(),
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LegalGoldSecondary, focusedLabelColor = LegalNavyPrimary)
             )
@@ -1076,6 +1547,33 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
                 }
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = newCategoryName,
+                onValueChange = { newCategoryName = it },
+                label = { Text("إضافة تصنيف مخصص") },
+                placeholder = { Text("مثال: أحوال شخصية دولي") },
+                modifier = Modifier.weight(1f)
+            )
+            Button(
+                onClick = {
+                    val raw = newCategoryName.trim()
+                    if (raw.isNotBlank()) {
+                        viewModel.addCustomCaseCategory(raw)
+                        caseType = raw
+                        newCategoryName = ""
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
+            ) {
+                Text("إضافة")
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         // Priority Dropdown selector and tags
@@ -1092,7 +1590,7 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityExpanded) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(),
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LegalGoldSecondary, focusedLabelColor = LegalNavyPrimary)
             )
@@ -1117,7 +1615,7 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
             value = summary,
             onValueChange = { summary = it },
             label = { Text("ملخص وموجز وقائع الدعوى") },
-            leadingIcon = { Icon(Icons.Default.Notes, null, tint = LegalNavyPrimary) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, null, tint = LegalNavyPrimary) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp),
@@ -1172,3 +1670,6 @@ fun CaseAddEditScreen(caseId: Int?, viewModel: AppViewModel, clients: List<Clien
         }
     }
 }
+
+
+

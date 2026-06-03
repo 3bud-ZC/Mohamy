@@ -26,15 +26,19 @@ import com.example.ui.theme.LegalGoldLight
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalGrayLight
 import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.legalScreenBackground
 
 @Composable
 fun SessionsListScreen(viewModel: AppViewModel, sessions: List<CaseSession>, cases: List<LegalCase>) {
     var searchTxt by remember { mutableStateOf("") }
+    val normalizedSearch = remember(searchTxt) { viewModel.repository.normalizeArabic(searchTxt) }
     val filtered = sessions.filter {
-        it.caseTitle.contains(searchTxt) || it.title.contains(searchTxt) || it.court.contains(searchTxt)
+        val haystack = viewModel.repository.normalizeArabic("${it.caseTitle} ${it.title} ${it.court} ${it.courtCircle} ${it.clientName} ${it.status}")
+        normalizedSearch.isBlank() || haystack.contains(normalizedSearch)
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.navigateTo(Screen.SessionAddEdit()) },
@@ -48,9 +52,23 @@ fun SessionsListScreen(viewModel: AppViewModel, sessions: List<CaseSession>, cas
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .legalScreenBackground()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("سجل الجلسات", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
+                    Text("إجمالي الجلسات: ${sessions.size}", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
+
             OutlinedTextField(
                 value = searchTxt,
                 onValueChange = { searchTxt = it },
@@ -156,8 +174,16 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
     var result by remember { mutableStateOf(editing?.result ?: "") }
     var status by remember { mutableStateOf(editing?.status ?: "قادمة") }
 
-    var selectedCaseIndex by remember { mutableStateOf(0) }
+    var selectedCaseIndex by remember(editing?.id, cases) {
+        mutableStateOf(
+            cases.indexOfFirst { it.id == (editing?.caseId ?: presetCaseId) }
+                .takeIf { it >= 0 }
+                ?: 0
+        )
+    }
     var caseExpanded by remember { mutableStateOf(false) }
+    var statusExpanded by remember { mutableStateOf(false) }
+    val statusOptions = listOf("قادمة", "منتهية", "مؤجلة", "ملغاة")
 
     LaunchedEffect(presetCaseId, cases) {
         if (presetCaseId != null) {
@@ -171,6 +197,7 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .legalScreenBackground()
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
@@ -242,7 +269,7 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
                     label = { Text("ارتباط بالقضية") },
                     leadingIcon = { Icon(Icons.Default.Folder, null, tint = LegalNavyPrimary) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LegalGoldSecondary, focusedLabelColor = LegalNavyPrimary)
                 )
@@ -303,6 +330,35 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
             label = { Text("القرار والنتيجة (في حل انتهت)") },
             modifier = Modifier.fillMaxWidth()
         )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        ExposedDropdownMenuBox(
+            expanded = statusExpanded,
+            onExpandedChange = { statusExpanded = !statusExpanded }
+        ) {
+            OutlinedTextField(
+                value = status,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("حالة الجلسة") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+            )
+            ExposedDropdownMenu(
+                expanded = statusExpanded,
+                onDismissRequest = { statusExpanded = false }
+            ) {
+                statusOptions.forEach { item ->
+                    DropdownMenuItem(
+                        text = { Text(item) },
+                        onClick = {
+                            status = item
+                            statusExpanded = false
+                        }
+                    )
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(

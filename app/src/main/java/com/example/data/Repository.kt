@@ -8,6 +8,9 @@ import android.provider.Settings
 import android.net.Uri
 import android.util.Log
 import com.example.BuildConfig
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -28,6 +31,8 @@ import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 data class LicenseActivationPayload(
     val username: String,
@@ -47,8 +52,11 @@ class Repository(private val db: AppDatabase, private val context: Context) {
     val sessionDao = db.sessionDao()
     val taskDao = db.taskDao()
     val fileDao = db.fileDao()
+    val clientInteractionDao = db.clientInteractionDao()
     val templateDao = db.templateDao()
     val generatedDocDao = db.generatedDocDao()
+    val feeDao = db.feeDao()
+    val customCaseCategoryDao = db.customCaseCategoryDao()
     val licenseDao = db.licenseDao()
     private val prefs = context.getSharedPreferences("mohamy_phone_prefs", Context.MODE_PRIVATE)
     private val workspaceRoot = File(context.filesDir, "mohamy_phone/account_workspaces")
@@ -77,23 +85,182 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         return fileDao.searchFilesText(normalizedQuery)
     }
 
+    fun fixedCaseCategories(): List<String> {
+        return listOf(
+            "أسرة",
+            "إيجارات",
+            "جنائي",
+            "مدني",
+            "تجاري",
+            "عمال",
+            "شركات",
+            "ميراث",
+            "عقارات",
+            "تعويضات",
+            "مرور",
+            "ضرائب",
+            "عقود",
+            "عام"
+        )
+    }
+
+    fun isFixedCaseCategory(raw: String): Boolean {
+        val normalized = normalizeArabic(raw)
+        return fixedCaseCategories().any { normalizeArabic(it) == normalized }
+    }
+
+    suspend fun addCustomCaseCategory(rawName: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val name = rawName.trim()
+                if (name.isBlank()) {
+                    return@withContext Result.failure(Exception("اسم التصنيف مطلوب."))
+                }
+                if (isFixedCaseCategory(name)) {
+                    return@withContext Result.failure(Exception("هذا التصنيف موجود ضمن التصنيفات الأساسية."))
+                }
+                val normalized = normalizeArabic(name)
+                val inserted = customCaseCategoryDao.insert(
+                    CustomCaseCategory(name = name, normalizedName = normalized)
+                )
+                if (inserted <= 0L) {
+                    return@withContext Result.failure(Exception("التصنيف موجود بالفعل."))
+                }
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(Exception(e.message ?: "تعذر إضافة التصنيف."))
+            }
+        }
+    }
+
+    private fun resolveAssistantApiUrl(): String {
+        return BuildConfig.ASSISTANT_API_URL.trim().trimEnd('/')
+    }
+
+    private fun resolveAssistantApiKey(): String {
+        return BuildConfig.ASSISTANT_API_KEY.trim()
+    }
+
+    fun hasConfiguredCloudAssistant(): Boolean {
+        return resolveAssistantApiUrl().isNotBlank()
+    }
+
+    fun isCloudAssistantEnabled(): Boolean {
+        return hasConfiguredCloudAssistant() && prefs.getBoolean("assistant_cloud_enabled", true)
+    }
+
+    fun setCloudAssistantEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("assistant_cloud_enabled", enabled).apply()
+    }
+
+    private fun extractAssistantText(responseJson: JSONObject): String? {
+        val direct = listOf("answer", "content", "text", "response")
+            .mapNotNull { key -> responseJson.optString(key).takeIf { it.isNotBlank() } }
+            .firstOrNull()
+        if (!direct.isNullOrBlank()) return direct
+
+        val dataObj = responseJson.optJSONObject("data")
+        if (dataObj != null) {
+            val dataText = listOf("answer", "content", "text", "response")
+                .mapNotNull { key -> dataObj.optString(key).takeIf { it.isNotBlank() } }
+                .firstOrNull()
+            if (!dataText.isNullOrBlank()) return dataText
+        }
+
+        val choices = responseJson.optJSONArray("choices")
+        if (choices != null && choices.length() > 0) {
+            val first = choices.optJSONObject(0)
+            val message = first?.optJSONObject("message")
+            val content = message?.optString("content")
+            if (!content.isNullOrBlank()) return content
+            val text = first?.optString("text")
+            if (!text.isNullOrBlank()) return text
+        }
+
+        return null
+    }
+
+    suspend fun requestOnlineAssistantAnswer(prompt: String, offlineSummary: String): Result<String>? {
+        return withContext(Dispatchers.IO) {
+            if (!isCloudAssistantEnabled()) return@withContext null
+            val endpoint = resolveAssistantApiUrl()
+            if (endpoint.isBlank()) return@withContext null
+
+            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 7000
+                readTimeout = 12000
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                val key = resolveAssistantApiKey()
+                if (key.isNotBlank()) {
+                    setRequestProperty("Authorization", "Bearer $key")
+                    setRequestProperty("X-Api-Key", key)
+                }
+            }
+
+            try {
+                val payload = JSONObject().apply {
+                    put("prompt", prompt)
+                    put("context", offlineSummary)
+                    put("language", "ar")
+                    put("mode", "legal_assistant")
+                }
+                OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
+                    writer.write(payload.toString())
+                }
+
+                val code = connection.responseCode
+                val body = try {
+                    (if (code in 200..299) connection.inputStream else connection.errorStream)
+                        ?.bufferedReader(Charsets.UTF_8)
+                        ?.readText()
+                } catch (_: Exception) {
+                    null
+                }
+
+                if (code !in 200..299) {
+                    return@withContext Result.failure(Exception("تعذر الوصول للمساعد السحابي حالياً."))
+                }
+
+                if (body.isNullOrBlank()) {
+                    return@withContext Result.failure(Exception("المساعد السحابي لم يُرجع محتوى."))
+                }
+
+                val answer = try {
+                    extractAssistantText(JSONObject(body))
+                } catch (_: Exception) {
+                    body.trim().takeIf { it.isNotBlank() }
+                }
+
+                if (answer.isNullOrBlank()) {
+                    Result.failure(Exception("تعذر قراءة رد المساعد السحابي."))
+                } else {
+                    Result.success(answer)
+                }
+            } catch (e: Exception) {
+                Result.failure(Exception(e.message ?: "فشل طلب المساعد السحابي."))
+            } finally {
+                connection.disconnect()
+            }
+        }
+    }
+
     // --- Template Seeding ---
     suspend fun seedTemplatesIfEmpty() {
-        val existingTemplates = templateDao.getAllTemplates().firstOrNull().orEmpty()
-        if (existingTemplates.isNotEmpty()) {
-            return
-        }
         val defaultTemplates = listOf(
             LegalTemplate(
                 id = 1,
                 title = "إنذار بسداد أجرة",
                 category = "إنذارات",
                 caseType = "إيجارات",
-                description = "إنذار قانوني بسداد الأجرة المتأخرة.",
+                description = "صيغة إنذار رسمي بسداد الأجرة المتأخرة مع التنبيه باتخاذ الإجراءات القانونية.",
                 requiredFieldsJson = """["التاريخ","اسم_المؤجر","اسم_المستأجر","عنوان_العين","مبلغ_الأجرة","شهر_السداد","تاريخ_عقد_الإيجار","المحكمة"]""",
                 templateBody = """إنه في يوم {{التاريخ}}
-بناء على طلب السيد/ {{اسم_المؤجر}}، ننذر السيد/ {{اسم_المستأجر}} بسداد قيمة الأجرة عن شهر {{شهر_السداد}} الخاصة بالعين {{عنوان_العين}} والمقدرة بمبلغ {{مبلغ_الأجرة}}.
-وحيث أن عقد الإيجار المؤرخ {{تاريخ_عقد_الإيجار}} ما زال نافذاً، لذا يلزم السداد فوراً وإلا اتخذت الإجراءات القضائية أمام محكمة {{المحكمة}}.
+بناءً على طلب السيد/ {{اسم_المؤجر}}، وبموجب عقد الإيجار المؤرخ {{تاريخ_عقد_الإيجار}} الخاص بالعين الكائنة {{عنوان_العين}}، ننذر السيد/ {{اسم_المستأجر}} بسرعة سداد القيمة الإيجارية المستحقة عن شهر/أشهر {{شهر_السداد}} والبالغ قدرها {{مبلغ_الأجرة}}.
+
+وحيث إن ذمتكم ما زالت مشغولة بالقيمة سالفة البيان رغم حلول ميعاد الاستحقاق قانوناً واتفاقاً، لذا ننبه عليكم بسداد كامل الأجرة والمتأخرات فور استلام هذا الإنذار، وإلا فسيضطر الطالب إلى اتخاذ كافة الإجراءات القانونية والقضائية أمام محكمة {{المحكمة}} مع حفظ حقه في المطالبة بالملحقات والتعويضات والمصروفات.
+
 ولأجل العلم."""
             ),
             LegalTemplate(
@@ -101,56 +268,82 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 title = "إنذار بإخلاء",
                 category = "إنذارات",
                 caseType = "إيجارات",
-                description = "إنذار بإخلاء العين المؤجرة لانتهاء المدة أو الإخلال.",
+                description = "صيغة إنذار بإخلاء العين المؤجرة لانتهاء المدة أو للإخلال الجسيم بشروط العقد.",
                 requiredFieldsJson = """["التاريخ","اسم_المؤجر","اسم_المستأجر","عنوان_العين","تاريخ_انتهاء_العقد","سبب_الإخلاء"]""",
                 templateBody = """إنه في يوم {{التاريخ}}
-يُنذر السيد/ {{اسم_المستأجر}} بإخلاء العين الكائنة في {{عنوان_العين}}، لانتهاء مدة العقد بتاريخ {{تاريخ_انتهاء_العقد}} أو بسبب {{سبب_الإخلاء}}.
-في حال عدم الإخلاء سيتم اتخاذ الإجراءات القانونية اللازمة."""
+ينذر السيد/ {{اسم_المستأجر}} بوجوب إخلاء وتسليم العين الكائنة {{عنوان_العين}} إخلاءً فعلياً خالياً من الأشخاص والمنقولات، وذلك بسبب {{سبب_الإخلاء}} و/أو لانتهاء العلاقة الإيجارية بتاريخ {{تاريخ_انتهاء_العقد}}.
+
+وحيث إن بقاء يد المنذر إليه على العين بعد هذا التاريخ يُعد غصباً بغير سند صحيح من القانون أو العقد، فإن الطالب ينبه عليه بوجوب التسليم الفوري، وإلا ستُتخذ ضده إجراءات دعوى الطرد والإخلاء مع المطالبة بالمقابل والتعويض والمصروفات.
+
+ولأجل العلم."""
             ),
             LegalTemplate(
                 id = 3,
                 title = "عقد إيجار",
                 category = "عقود",
                 caseType = "إيجارات",
-                description = "صيغة عقد إيجار بين مؤجر ومستأجر.",
+                description = "صيغة عقد إيجار مدني بصياغة عملية مناسبة للاستخدام المكتبي.",
                 requiredFieldsJson = """["التاريخ","اسم_المؤجر","رقم_بطاقة_المؤجر","اسم_المستأجر","رقم_بطاقة_المستأجر","عنوان_العين","مدة_الإيجار","تاريخ_البدء","القيمة_الإيجارية","مبلغ_التأمين"]""",
                 templateBody = """عقد إيجار
-في تاريخ {{التاريخ}} تم الاتفاق بين:
-الطرف الأول (المؤجر): {{اسم_المؤجر}} - بطاقة {{رقم_بطاقة_المؤجر}}
-الطرف الثاني (المستأجر): {{اسم_المستأجر}} - بطاقة {{رقم_بطاقة_المستأجر}}
-العين المؤجرة: {{عنوان_العين}}، لمدة {{مدة_الإيجار}} تبدأ من {{تاريخ_البدء}} مقابل قيمة إيجارية {{القيمة_الإيجارية}} وتأمين {{مبلغ_التأمين}}."""
+إنه في يوم {{التاريخ}} تم الاتفاق والتراضي بين كل من:
+
+أولاً: السيد/ {{اسم_المؤجر}} - ويحمل بطاقة رقم {{رقم_بطاقة_المؤجر}} (طرف أول - مؤجر)
+ثانياً: السيد/ {{اسم_المستأجر}} - ويحمل بطاقة رقم {{رقم_بطاقة_المستأجر}} (طرف ثانٍ - مستأجر)
+
+بعد أن أقر الطرفان بأهليتهما القانونية للتعاقد، فقد اتفقا على ما يلي:
+1. أجر الطرف الأول للطرف الثاني العين الكائنة {{عنوان_العين}}.
+2. مدة الإيجار {{مدة_الإيجار}} تبدأ اعتباراً من {{تاريخ_البدء}}.
+3. القيمة الإيجارية المتفق عليها هي {{القيمة_الإيجارية}} تسدد في المواعيد المتفق عليها بين الطرفين.
+4. دفع الطرف الثاني مبلغ {{مبلغ_التأمين}} كتأمين يرد عند انتهاء العلاقة الإيجارية بعد خصم ما قد يكون مستحقاً.
+5. يلتزم المستأجر باستعمال العين فيما أعدت له والمحافظة عليها وردها بالحالة التي تسلمها عليها فيما عدا الاستهلاك العادي.
+
+حرر هذا العقد من نسختين بيد كل طرف نسخة للعمل بموجبها."""
             ),
             LegalTemplate(
                 id = 4,
                 title = "عقد بيع ابتدائي",
                 category = "عقود",
                 caseType = "عقارات",
-                description = "صيغة عقد بيع ابتدائي لعقار.",
+                description = "صيغة عقد بيع ابتدائي لعقار بصياغة متوازنة وقابلة للتخصيص.",
                 requiredFieldsJson = """["التاريخ","اسم_البائع","رقم_بطاقة_البائع","اسم_المشتري","رقم_بطاقة_المشتري","عنوان_العين","مساحة_العين","الثمن_الإجمالي","المقدم","المتبقي"]""",
                 templateBody = """عقد بيع ابتدائي
-في يوم {{التاريخ}} باع الطرف الأول {{اسم_البائع}} إلى الطرف الثاني {{اسم_المشتري}} العقار الكائن في {{عنوان_العين}} بمساحة {{مساحة_العين}}.
-الثمن الإجمالي {{الثمن_الإجمالي}}، سدد منه {{المقدم}} وباقي قدره {{المتبقي}}."""
+إنه في يوم {{التاريخ}} تم هذا البيع بين كل من:
+الطرف الأول البائع/ {{اسم_البائع}} - بطاقة رقم {{رقم_بطاقة_البائع}}
+الطرف الثاني المشتري/ {{اسم_المشتري}} - بطاقة رقم {{رقم_بطاقة_المشتري}}
+
+باع وأسقط وتنازل بكافة الضمانات القانونية والفعلية الطرف الأول للطرف الثاني ما هو العقار الكائن {{عنوان_العين}} بمساحة {{مساحة_العين}}.
+وقد تم هذا البيع لقاء ثمن إجمالي وقدره {{الثمن_الإجمالي}}، دفع منه عند التوقيع مبلغ {{المقدم}}، ويتبقى مبلغ {{المتبقي}} يسدد وفق ما يتفق عليه الطرفان.
+
+ويقر الطرف الأول بملكيته للعقار وخلوه من الموانع القانونية الظاهرة، كما يلتزم بالحضور أمام الجهات المختصة لإتمام الإجراءات النهائية عند الطلب.
+
+حرر هذا العقد من نسختين للعمل بموجب كل نسخة."""
             ),
             LegalTemplate(
                 id = 5,
                 title = "مخالصة",
                 category = "مخالصات",
                 caseType = "عام",
-                description = "مخالصة مالية وإبراء ذمة.",
+                description = "مخالصة مالية وإبراء ذمة بصياغة مباشرة وصالحة للاستخدام العملي.",
                 requiredFieldsJson = """["التاريخ","اسم_المقر","رقم_بطاقة_المقر","اسم_المستفيد","المبلغ","سبب_المخالصة"]""",
                 templateBody = """إقرار مخالصة
-أقر أنا {{اسم_المقر}} بطاقة رقم {{رقم_بطاقة_المقر}} أنني استلمت من {{اسم_المستفيد}} مبلغ {{المبلغ}} وذلك عن {{سبب_المخالصة}}.
-وبذلك أبرئ ذمته نهائياً. تحريراً في {{التاريخ}}."""
+أنا الموقع أدناه/ {{اسم_المقر}} بطاقة رقم {{رقم_بطاقة_المقر}} أقر بأنني تسلمت من السيد/ {{اسم_المستفيد}} مبلغاً وقدره {{المبلغ}}، وذلك تسويةً ونهائياً عن {{سبب_المخالصة}}.
+
+وبهذا أقر بمخالصة المستفيد مخالصة تامة ونهائية، وأبرئ ذمته من أية مطالبات حالية أو لاحقة تتعلق بسبب هذه المخالصة.
+
+تحريراً في {{التاريخ}}."""
             ),
             LegalTemplate(
                 id = 6,
                 title = "إقرار دين",
                 category = "إقرارات",
                 caseType = "عام",
-                description = "إقرار مديونية وتعهد بالسداد.",
+                description = "إقرار مديونية وتعهد بالسداد بصياغة واضحة وصالحة للإثبات.",
                 requiredFieldsJson = """["التاريخ","اسم_المدين","رقم_بطاقة_المدين","اسم_الدائن","مبلغ_الدين","تاريخ_الاستحقاق"]""",
                 templateBody = """إقرار دين
-أقر أنا {{اسم_المدين}} بطاقة رقم {{رقم_بطاقة_المدين}} أنني مدين للسيد {{اسم_الدائن}} بمبلغ {{مبلغ_الدين}} وأتعهد بالسداد في {{تاريخ_الاستحقاق}}.
+أقر أنا/ {{اسم_المدين}} بطاقة رقم {{رقم_بطاقة_المدين}} بأنني مدين للسيد/ {{اسم_الدائن}} بمبلغ وقدره {{مبلغ_الدين}}، وأن هذا المبلغ مستحق الأداء في تاريخ أقصاه {{تاريخ_الاستحقاق}}.
+
+كما أتعهد بالسداد في الميعاد المذكور دون حاجة إلى تنبيه أو إنذار، وفي حالة التأخير أتحمل كافة الآثار القانونية والمصروفات المترتبة على المطالبة.
+
 تحريراً في {{التاريخ}}."""
             ),
             LegalTemplate(
@@ -158,27 +351,45 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 title = "طلب تأجيل",
                 category = "طلبات",
                 caseType = "عام",
-                description = "طلب تأجيل جلسة.",
+                description = "طلب تأجيل جلسة بصياغة قضائية مختصرة ومهنية.",
                 requiredFieldsJson = """["التاريخ","المحكمة","الدائرة","رقم_الدعوى","سنة_الدعوى","اسم_المحامي","سبب_التأجيل"]""",
                 templateBody = """السيد رئيس محكمة {{المحكمة}} الدائرة {{الدائرة}}
-مقدمه: الأستاذ {{اسم_المحامي}}
-في الدعوى رقم {{رقم_الدعوى}} لسنة {{سنة_الدعوى}}.
-نلتمس التأجيل لجلسة قادمة بسبب: {{سبب_التأجيل}}.
-وتفضلوا بقبول الاحترام. تحريراً في {{التاريخ}}."""
+مقدمه لسيادتكم/ الأستاذ {{اسم_المحامي}}
+في الدعوى رقم {{رقم_الدعوى}} لسنة {{سنة_الدعوى}}
+
+يلتمس مقدم الطلب التأجيل لجلسة أخرى مناسبة، وذلك بسبب {{سبب_التأجيل}}، مع التصريح بما يلزم قانوناً إن رأت المحكمة الموقرة ذلك.
+
+ولعدالة المحكمة الموقرة واسع النظر
+مقدمه لسيادتكم
+{{اسم_المحامي}}
+تحريراً في {{التاريخ}}."""
             ),
             LegalTemplate(
                 id = 8,
                 title = "مذكرة دفاع عامة",
                 category = "مذكرات",
                 caseType = "عام",
-                description = "نموذج مذكرة دفاع عامة.",
+                description = "هيكل مذكرة دفاع عامة بأسلوب مهني يصلح كنقطة انطلاق للمرافعات المدنية والجنائية والعمالية.",
                 requiredFieldsJson = """["التاريخ","المحكمة","الدائرة","رقم_الدعوى","سنة_الدعوى","صفة_الموكل","اسم_الخصم","الوقائع","الدفوع","الطلبات"]""",
                 templateBody = """مذكرة دفاع
-بدفاع {{صفة_الموكل}} ضد {{اسم_الخصم}}
-في الدعوى رقم {{رقم_الدعوى}} لسنة {{سنة_الدعوى}} أمام محكمة {{المحكمة}} دائرة {{الدائرة}}.
-الوقائع: {{الوقائع}}
-الدفوع: {{الدفوع}}
-الطلبات: {{الطلبات}}
+مقدمة من/ {{صفة_الموكل}}
+ضد/ {{اسم_الخصم}}
+في الدعوى رقم {{رقم_الدعوى}} لسنة {{سنة_الدعوى}}
+أمام محكمة {{المحكمة}} - الدائرة {{الدائرة}}
+
+أولاً: الوقائع
+{{الوقائع}}
+
+ثانياً: الدفوع والأسانيد
+{{الدفوع}}
+
+ثالثاً: الطلبات
+{{الطلبات}}
+
+بناءً عليه
+يلتمس مقدم هذه المذكرة الحكم وفق الطلبات سالفة البيان، مع إلزام الخصم بالمصروفات ومقابل أتعاب المحاماة.
+
+وتفضلوا بقبول وافر الاحترام
 تحريراً في {{التاريخ}}."""
             ),
             LegalTemplate(
@@ -186,14 +397,23 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 title = "شكوى عامة",
                 category = "شكاوى",
                 caseType = "عام",
-                description = "نموذج شكوى عامة للجهة المختصة.",
+                description = "صيغة شكوى عامة موجهة إلى جهة إدارية أو رقابية أو خدمية.",
                 requiredFieldsJson = """["التاريخ","الجهة_المقدمة_إليها","اسم_مقدم_الشكوى","الصفة","موضوع_الشكوى","الوقائع","الطلبات"]""",
                 templateBody = """شكوى عامة
-مقدمة إلى: {{الجهة_المقدمة_إليها}}
-مقدم الشكوى: {{اسم_مقدم_الشكوى}} ({{الصفة}})
-الموضوع: {{موضوع_الشكوى}}
-الوقائع: {{الوقائع}}
-الطلبات: {{الطلبات}}
+مقدمة إلى/ {{الجهة_المقدمة_إليها}}
+مقدمها/ {{اسم_مقدم_الشكوى}} - بصفته {{الصفة}}
+
+الموضوع
+{{موضوع_الشكوى}}
+
+الوقائع
+{{الوقائع}}
+
+الطلبات
+{{الطلبات}}
+
+وتفضلوا باتخاذ ما ترونه مناسباً في ضوء صحيح القانون
+وتفضلوا بقبول الاحترام
 التاريخ: {{التاريخ}}."""
             ),
             LegalTemplate(
@@ -201,23 +421,33 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 title = "محضر صلح",
                 category = "محاضر",
                 caseType = "عام",
-                description = "نموذج محضر صلح بين طرفين.",
+                description = "محضر صلح بين طرفين مع إثبات الاتفاق والتسوية النهائية.",
                 requiredFieldsJson = """["التاريخ","الطرف_الأول","الطرف_الثاني","موضوع_النزاع","بنود_الصلح","مبلغ_إن_وجد"]""",
                 templateBody = """محضر صلح
-في يوم {{التاريخ}} تم الاتفاق بين {{الطرف_الأول}} و{{الطرف_الثاني}} بشأن {{موضوع_النزاع}}.
-بنود الصلح: {{بنود_الصلح}}.
-القيمة المتفق عليها إن وجدت: {{مبلغ_إن_وجد}}."""
+في يوم {{التاريخ}} تم الاتفاق نهائياً بين كل من:
+الطرف الأول/ {{الطرف_الأول}}
+الطرف الثاني/ {{الطرف_الثاني}}
+
+وذلك بشأن النزاع المتعلق بـ {{موضوع_النزاع}}، وقد اتفق الطرفان بكامل إرادتهما على بنود الصلح الآتية:
+{{بنود_الصلح}}
+
+القيمة المالية محل التسوية - إن وجدت -: {{مبلغ_إن_وجد}}
+
+ويعتبر هذا المحضر ملزماً للطرفين فور التوقيع عليه، ومبرئاً لذمتهما في حدود ما ورد به.
+وحرر من نسختين بيد كل طرف نسخة للعمل بموجبها."""
             ),
             LegalTemplate(
                 id = 11,
                 title = "توكيل خاص",
                 category = "توكيلات",
                 caseType = "عام",
-                description = "نموذج توكيل خاص بالإجراءات القضائية.",
+                description = "صيغة توكيل خاص بالإجراءات القضائية والمتابعة أمام الجهات المختصة.",
                 requiredFieldsJson = """["التاريخ","اسم_الموكل","رقم_بطاقة_الموكل","اسم_المحامي","موضوع_التوكيل","رقم_القضية_إن_وجد"]""",
                 templateBody = """توكيل خاص
-أنا {{اسم_الموكل}} بطاقة رقم {{رقم_بطاقة_الموكل}} أوكل الأستاذ {{اسم_المحامي}} في مباشرة إجراءات {{موضوع_التوكيل}}
-وذلك بخصوص القضية رقم {{رقم_القضية_إن_وجد}}، مع حق الحضور والتوقيع واتخاذ ما يلزم قانوناً.
+أنا/ {{اسم_الموكل}} بطاقة رقم {{رقم_بطاقة_الموكل}} قد وكلت الأستاذ/ {{اسم_المحامي}} في مباشرة كافة إجراءات {{موضوع_التوكيل}}، وبالأخص ما يتصل بالقضية رقم {{رقم_القضية_إن_وجد}} إن وجدت.
+
+ويشمل هذا التوكيل حق الحضور أمام المحاكم والنيابات والجهات الإدارية، وتقديم الطلبات والمذكرات، واستلام الإعلانات والمستندات، واتخاذ ما يلزم قانوناً في حدود هذا التفويض.
+
 تحريراً في {{التاريخ}}."""
             )
         )
@@ -320,7 +550,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
     suspend fun saveFileToPrivateStorage(caseId: Int, fileName: String, fileUri: Uri): File {
         return withContext(Dispatchers.IO) {
             val destinationDir = getCaseFilesDirectory(caseId)
-            val destFile = File(destinationDir, fileName)
+            val destFile = createUniqueFile(destinationDir, fileName)
             context.contentResolver.openInputStream(fileUri)?.use { inputStream ->
                 FileOutputStream(destFile).use { outputStream ->
                     inputStream.copyTo(outputStream)
@@ -330,11 +560,51 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         }
     }
 
+    private fun createUniqueFile(parent: File, originalName: String): File {
+        val cleaned = originalName.trim().ifBlank { "document_${System.currentTimeMillis()}" }
+        val baseName = cleaned.substringBeforeLast('.', cleaned)
+        val extension = cleaned.substringAfterLast('.', "").takeIf { it != cleaned }
+        var candidate = File(parent, cleaned)
+        var counter = 1
+        while (candidate.exists()) {
+            val suffix = "_$counter"
+            val nextName = if (extension.isNullOrBlank()) {
+                "$baseName$suffix"
+            } else {
+                "$baseName$suffix.$extension"
+            }
+            candidate = File(parent, nextName)
+            counter++
+        }
+        return candidate
+    }
+
+    fun suggestDocumentType(fileName: String): String {
+        val normalized = normalizeArabic(fileName)
+        val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        return when {
+            normalized.contains("توكيل") -> "توكيل"
+            normalized.contains("حكم") -> "حكم"
+            normalized.contains("محضر") -> "محضر"
+            normalized.contains("مذكر") -> "مذكرة"
+            normalized.contains("صحيف") || normalized.contains("عريض") || normalized.contains("دعوى") -> "عريضة دعوى"
+            normalized.contains("هويه") || normalized.contains("بطاق") || normalized.contains("رقم قومي") -> "هوية"
+            normalized.contains("ايصال") || normalized.contains("سداد") -> "إيصال"
+            normalized.contains("انذار") -> "إنذار"
+            normalized.contains("عقد") -> "عقد"
+            extension in listOf("jpg", "jpeg", "png", "webp") -> "صورة مستند"
+            extension == "pdf" -> "مستند PDF"
+            extension in listOf("doc", "docx") -> "مذكرة"
+            else -> "مستند"
+        }
+    }
+
     suspend fun extractAndCleanText(file: File, fileType: String): String {
         return withContext(Dispatchers.IO) {
             try {
                 if (!file.exists()) return@withContext ""
-                if (fileType.lowercase() == "txt" || file.extension.lowercase() == "txt") {
+                val effectiveType = fileType.lowercase(Locale.ROOT).ifBlank { file.extension.lowercase(Locale.ROOT) }
+                if (LocalBusinessRules.isSearchableTextExtension(effectiveType)) {
                     val bytes = FileInputStream(file).use { it.readBytes() }
                     return@withContext try {
                         String(bytes, Charsets.UTF_8)
@@ -345,6 +615,31 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 ""
             } catch (e: Exception) {
                 Log.e("Repository", "Error extracting text", e)
+                ""
+            }
+        }
+    }
+
+    suspend fun extractTextFromImage(file: File): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (!file.exists() || !LocalBusinessRules.isImageExtension(file.extension)) return@withContext ""
+                val image = InputImage.fromFilePath(context, Uri.fromFile(file))
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                suspendCoroutine<String> { continuation ->
+                    recognizer.process(image)
+                        .addOnSuccessListener { result ->
+                            continuation.resume(result.text.orEmpty())
+                        }
+                        .addOnFailureListener {
+                            continuation.resume("")
+                        }
+                        .addOnCompleteListener {
+                            recognizer.close()
+                        }
+                }
+            } catch (e: Exception) {
+                Log.e("Repository", "OCR extraction failed", e)
                 ""
             }
         }
@@ -409,6 +704,18 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         }
     }
 
+    private fun checkpointDatabaseWal() {
+        try {
+            db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { cursor ->
+                while (cursor.moveToNext()) {
+                    // consume rows to complete pragma execution safely
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("Repository", "WAL checkpoint skipped: ${e.message}")
+        }
+    }
+
     suspend fun clearLocalWorkspace() {
         withContext(Dispatchers.IO) {
             db.clearAllTables()
@@ -421,7 +728,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
             val normalizedUsername = username.trim()
             if (normalizedUsername.isBlank()) return@withContext
 
-            db.openHelper.writableDatabase.execSQL("PRAGMA wal_checkpoint(FULL)")
+            checkpointDatabaseWal()
 
             val accountKey = accountWorkspaceKey(normalizedUsername)
             val workspaceDir = getAccountWorkspaceDir(accountKey)
@@ -485,7 +792,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
     suspend fun backupDatabaseFile(): File? {
         return withContext(Dispatchers.IO) {
             try {
-                db.openHelper.writableDatabase.execSQL("PRAGMA wal_checkpoint(FULL)")
+                checkpointDatabaseWal()
 
                 val dbFile = context.getDatabasePath("mohamy_phone_database")
                 if (!dbFile.exists()) return@withContext null
@@ -511,6 +818,121 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                 Log.e("Repository", "Backup failed", e)
                 null
             }
+        }
+    }
+
+    suspend fun exportCaseBundle(
+        legalCase: LegalCase,
+        sessions: List<CaseSession>,
+        tasks: List<LegalTask>,
+        files: List<CaseFile>
+    ): File? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val safeTitle = legalCase.title.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(40)
+                val stamp = SimpleDateFormat("yyyy_MM_dd_HHmmss", Locale.ENGLISH).format(Date())
+                val bundleFile = File(context.cacheDir, "case_bundle_${safeTitle}_$stamp.zip")
+
+                ZipOutputStream(BufferedOutputStream(FileOutputStream(bundleFile))).use { zip ->
+                    val summary = buildString {
+                        appendLine("عنوان القضية: ${legalCase.title}")
+                        appendLine("رقم القضية: ${legalCase.caseNumber}/${legalCase.caseYear}")
+                        appendLine("نوع القضية: ${legalCase.caseType}")
+                        appendLine("الموكل: ${legalCase.clientName}")
+                        appendLine("الخصم: ${legalCase.opponentName}")
+                        appendLine("المحكمة: ${legalCase.courtName}")
+                        appendLine("الدائرة: ${legalCase.courtCircle}")
+                        appendLine("الحالة: ${legalCase.status}")
+                        appendLine("الأولوية: ${legalCase.priority}")
+                        appendLine("آخر جلسة: ${legalCase.lastSessionDate}")
+                        appendLine("الجلسة القادمة: ${legalCase.nextSessionDate}")
+                        appendLine()
+                        appendLine("الجلسات:")
+                        if (sessions.isEmpty()) appendLine("- لا توجد")
+                        sessions.forEach { appendLine("- ${it.date} ${it.time} | ${it.title} | ${it.status}") }
+                        appendLine()
+                        appendLine("المهام:")
+                        if (tasks.isEmpty()) appendLine("- لا توجد")
+                        tasks.forEach { appendLine("- ${it.title} | ${it.status} | ${it.dueDate}") }
+                        appendLine()
+                        appendLine("المستندات:")
+                        if (files.isEmpty()) appendLine("- لا توجد")
+                        files.forEach { appendLine("- ${it.fileName} | ${it.docType}") }
+                    }
+
+                    zip.putNextEntry(ZipEntry("summary/case_summary.txt"))
+                    zip.write(summary.toByteArray(Charsets.UTF_8))
+                    zip.closeEntry()
+
+                    files.forEach { caseFile ->
+                        val source = File(caseFile.filePath)
+                        if (source.exists() && source.isFile) {
+                            addFileToZip(zip, source, "files/${source.name}")
+                        }
+                    }
+                }
+                bundleFile
+            } catch (e: Exception) {
+                Log.e("Repository", "Case bundle export failed", e)
+                null
+            }
+        }
+    }
+
+    suspend fun cleanupDuplicateCaseFiles(): Int {
+        return withContext(Dispatchers.IO) {
+            val files = fileDao.getAllFiles().firstOrNull().orEmpty()
+            val grouped = files.groupBy { Triple(it.caseId, normalizeArabic(it.fileName), it.fileLength) }
+            var removed = 0
+            grouped.values.forEach { entries ->
+                if (entries.size <= 1) return@forEach
+                entries.sortedByDescending { it.uploadDate }.drop(1).forEach { duplicate ->
+                    try {
+                        val file = File(duplicate.filePath)
+                        if (file.exists()) file.delete()
+                    } catch (_: Exception) {
+                    }
+                    fileDao.deleteFile(duplicate)
+                    removed += 1
+                }
+            }
+            removed
+        }
+    }
+
+    suspend fun cleanupMissingFileReferences(): Int {
+        return withContext(Dispatchers.IO) {
+            val files = fileDao.getAllFiles().firstOrNull().orEmpty()
+            var removed = 0
+            files.forEach { fileRef ->
+                if (!File(fileRef.filePath).exists()) {
+                    fileDao.deleteFile(fileRef)
+                    removed += 1
+                }
+            }
+            removed
+        }
+    }
+
+    suspend fun cleanupDuplicateGeneratedDocuments(): Int {
+        return withContext(Dispatchers.IO) {
+            val docs = generatedDocDao.getAllGeneratedDocuments().firstOrNull().orEmpty()
+            val grouped = docs.groupBy {
+                Triple(
+                    it.caseId,
+                    normalizeArabic(it.documentTitle),
+                    normalizeArabic(it.content.take(240))
+                )
+            }
+            var removed = 0
+            grouped.values.forEach { entries ->
+                if (entries.size <= 1) return@forEach
+                entries.sortedByDescending { it.dateCreated }.drop(1).forEach { duplicate ->
+                    generatedDocDao.deleteGeneratedDocument(duplicate)
+                    removed += 1
+                }
+            }
+            removed
         }
     }
 
@@ -729,7 +1151,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
     }
 
     private fun parseServerExpiryMillis(expiresAt: String?): Long {
-        if (expiresAt.isNullOrBlank()) return System.currentTimeMillis() + (365L * 24L * 60L * 60L * 1000L)
+        if (expiresAt.isNullOrBlank()) return Long.MAX_VALUE
         val zoneId = java.time.ZoneId.systemDefault()
         return try {
             java.time.Instant.parse(expiresAt).toEpochMilli()
@@ -751,7 +1173,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                             .toInstant()
                             .toEpochMilli()
                     } catch (_: Exception) {
-                        System.currentTimeMillis() + (365L * 24L * 60L * 60L * 1000L)
+                        Long.MAX_VALUE
                     }
                 }
             }

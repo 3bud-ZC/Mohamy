@@ -36,6 +36,7 @@ sealed class Screen {
     object BackupRestore : Screen()
     object Settings : Screen()
     object Search : Screen()
+    object FilesLibrary : Screen()
     object SmartAssistant : Screen()
     object ImportData : Screen()
 }
@@ -50,9 +51,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // --- State Routing ---
     var currentScreen by mutableStateOf<Screen>(Screen.Splash)
         private set
+    private val navigationBackStack = mutableListOf<Screen>()
 
-    fun navigateTo(screen: Screen) {
+    fun navigateTo(screen: Screen, addToBackStack: Boolean = true) {
+        if (currentScreen == screen) return
+        if (addToBackStack) {
+            navigationBackStack.add(currentScreen)
+        } else {
+            navigationBackStack.clear()
+        }
         currentScreen = screen
+    }
+
+    fun canGoBack(): Boolean = navigationBackStack.isNotEmpty()
+
+    fun goBack(): Boolean {
+        if (navigationBackStack.isEmpty()) return false
+        currentScreen = navigationBackStack.removeAt(navigationBackStack.lastIndex)
+        return true
     }
 
     // --- Active Selection State ID Storage ---
@@ -61,31 +77,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- State Flows from Room ---
     val allClients = repository.clientDao.getAllClients()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val allCases = repository.caseDao.getAllActiveCases()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val archivedCases = repository.caseDao.getAllArchivedCases()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val allSessions = repository.sessionDao.getAllSessions()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val allTasks = repository.taskDao.getAllTasks()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val allFiles = repository.fileDao.getAllFiles()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
+
+    val allClientInteractions = repository.clientInteractionDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val allTemplates = repository.templateDao.getAllTemplates()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val allGeneratedDocuments = repository.generatedDocDao.getAllGeneratedDocuments()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
+
+    val allFeeRecords = repository.feeDao.getAllFeeRecords()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
+
+    val allCustomCaseCategories = repository.customCaseCategoryDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     val licenseState = repository.licenseDao.getLicenseFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
 
     // --- Search Engine Flow & Normalization ---
     var searchEngineQuery by mutableStateOf("")
@@ -99,18 +124,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 repository.fileDao.searchFilesText(normalized)
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
 
     // --- Temporary Screens Message Banner States ---
     var globalErrorMsg by mutableStateOf<String?>(null)
     var globalSuccessMsg by mutableStateOf<String?>(null)
+    var globalInfoMsg by mutableStateOf<String?>(null)
     var isBackupInProgress by mutableStateOf(false)
     var isAssistantLoading by mutableStateOf(false)
+    var isCloudAssistantEnabled by mutableStateOf(repository.isCloudAssistantEnabled())
+    var isDarkThemeEnabled by mutableStateOf(false)
     var lastBackupAtMillis by mutableStateOf<Long?>(null)
     var lastBackupSizeBytes by mutableStateOf<Long?>(null)
     var licenseServerUrlInput by mutableStateOf(BuildConfig.LICENSE_SERVER_URL)
     var appReloadNonce by mutableStateOf(0)
         private set
+    var updateCheckInProgress by mutableStateOf(false)
+    var updateDownloadInProgress by mutableStateOf(false)
+    var updateAvailable by mutableStateOf(false)
+    var updateRemoteVersionCode by mutableStateOf<Int?>(null)
+    var updateRemoteVersionName by mutableStateOf<String?>(null)
+    var updateRemoteReleaseTitle by mutableStateOf<String?>(null)
+    var updateRemoteReleaseNotes by mutableStateOf("")
+    var updateRemoteDownloadUrl by mutableStateOf("")
+    var updateDownloadProgress by mutableStateOf(0)
+    var downloadedUpdateFilePath by mutableStateOf<String?>(null)
+    var updateStatusMessage by mutableStateOf<String?>(null)
+    val hasConfiguredCloudAssistant: Boolean
+        get() = repository.hasConfiguredCloudAssistant()
 
     // --- License Form Inputs ---
     var usernameInput by mutableStateOf("")
@@ -122,6 +163,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             lastBackupAtMillis = prefs.getLong("last_backup_at", 0L).takeIf { it > 0L }
             lastBackupSizeBytes = prefs.getLong("last_backup_size", 0L).takeIf { it > 0L }
             licenseServerUrlInput = repository.migrateLicenseServerUrlIfNeeded()
+            isCloudAssistantEnabled = repository.isCloudAssistantEnabled()
+            isDarkThemeEnabled = prefs.getBoolean("dark_mode_enabled", false)
             repository.ensureActiveWorkspaceMarker()
             repository.consumePendingActivation()?.let {
                 repository.persistActivatedLicense(it)
@@ -135,14 +178,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             
             val status = repository.checkLicenseStatus()
             if (status == "نشط") {
-                navigateTo(Screen.Dashboard)
+                navigateTo(Screen.Dashboard, addToBackStack = false)
                 repository.checkLicenseOnlineIfDue().onFailure {
                     globalErrorMsg = it.message
-                    navigateTo(Screen.Activation)
+                    navigateTo(Screen.Activation, addToBackStack = false)
                 }
             } else {
-                navigateTo(Screen.Activation)
+                navigateTo(Screen.Activation, addToBackStack = false)
             }
+
+            checkForAppUpdate(showUserFeedback = false)
         }
     }
 
@@ -151,6 +196,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             globalErrorMsg = null
             globalSuccessMsg = null
+            globalInfoMsg = null
             val targetUsername = usernameInput.trim()
             repository.activateLicense(usernameInput, LicenseCodeInput)
                 .onSuccess { activation ->
@@ -158,7 +204,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     if (currentWorkspaceUsername.equals(targetUsername, ignoreCase = true)) {
                         repository.persistActivatedLicense(activation)
                         globalSuccessMsg = "تم تفعيل الترخيص بنجاح وارتباطه بجهازك!"
-                        navigateTo(Screen.Dashboard)
+                        navigateTo(Screen.Dashboard, addToBackStack = false)
                     } else {
                         repository.switchToAccountWorkspace(targetUsername)
                         repository.queuePendingActivation(activation)
@@ -185,7 +231,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             usernameInput = ""
             LicenseCodeInput = ""
             globalSuccessMsg = "تم تسجيل الخروج مع حفظ مساحة هذا الحساب محلياً على الجهاز."
-            navigateTo(Screen.Activation)
+            globalInfoMsg = null
+            navigateTo(Screen.Activation, addToBackStack = false)
         }
     }
 
@@ -208,6 +255,150 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         globalSuccessMsg = "تم حفظ رابط سيرفر التراخيص."
     }
 
+    fun updateDarkThemeEnabled(enabled: Boolean) {
+        isDarkThemeEnabled = enabled
+        prefs.edit().putBoolean("dark_mode_enabled", enabled).apply()
+        globalInfoMsg = if (enabled) "تم تفعيل الوضع الليلي الاحترافي." else "تم تفعيل الوضع الفاتح."
+    }
+
+    fun checkForAppUpdate(showUserFeedback: Boolean = true) {
+        viewModelScope.launch {
+            updateCheckInProgress = true
+            updateStatusMessage = null
+            val manager = AppUpdateManager(getApplication())
+            manager.checkForUpdate().onSuccess { updateInfo ->
+                updateCheckInProgress = false
+                downloadedUpdateFilePath = null
+                updateDownloadProgress = 0
+                if (updateInfo == null) {
+                    updateAvailable = false
+                    updateRemoteVersionCode = null
+                    updateRemoteVersionName = null
+                    updateRemoteReleaseTitle = null
+                    updateRemoteReleaseNotes = ""
+                    updateRemoteDownloadUrl = ""
+                    updateStatusMessage = "التطبيق محدث بالفعل."
+                    if (showUserFeedback) {
+                        globalInfoMsg = "التطبيق محدث بالفعل."
+                    }
+                    return@onSuccess
+                }
+
+                updateAvailable = true
+                updateRemoteVersionCode = updateInfo.versionCode
+                updateRemoteVersionName = updateInfo.versionName
+                updateRemoteReleaseTitle = updateInfo.releaseTitle
+                updateRemoteReleaseNotes = updateInfo.releaseNotes
+                updateRemoteDownloadUrl = updateInfo.apkUrl
+                updateStatusMessage = "توجد نسخة أحدث جاهزة للتنزيل."
+                globalInfoMsg = "يوجد تحديث جديد للتطبيق."
+                AppNotificationManager.notifyUpdateAvailable(
+                    getApplication(),
+                    updateInfo.displayVersionLabel,
+                    updateInfo.releaseNotes,
+                    updateInfo.releaseTitle
+                )
+            }.onFailure { error ->
+                updateCheckInProgress = false
+                updateAvailable = false
+                updateRemoteVersionCode = null
+                updateRemoteVersionName = null
+                updateRemoteReleaseTitle = null
+                updateRemoteReleaseNotes = ""
+                updateRemoteDownloadUrl = ""
+                downloadedUpdateFilePath = null
+                updateStatusMessage = null
+                if (showUserFeedback) {
+                    globalErrorMsg = error.message ?: "تعذر فحص التحديثات حالياً."
+                }
+            }
+        }
+    }
+
+    fun downloadAndInstallAppUpdate() {
+        viewModelScope.launch {
+            val remoteVersionCode = updateRemoteVersionCode
+            val remoteDownloadUrl = updateRemoteDownloadUrl
+            if (!updateAvailable || remoteVersionCode == null || remoteDownloadUrl.isBlank()) {
+                globalErrorMsg = "لا توجد نسخة جديدة جاهزة للتنزيل."
+                return@launch
+            }
+
+            updateDownloadInProgress = true
+            updateDownloadProgress = 0
+            updateStatusMessage = "جارٍ تنزيل ملف التحديث..."
+            val manager = AppUpdateManager(getApplication())
+            val updateInfo = AppUpdateInfo(
+                versionCode = remoteVersionCode,
+                versionName = updateRemoteVersionName.orEmpty(),
+                apkUrl = remoteDownloadUrl,
+                releaseNotes = updateRemoteReleaseNotes,
+                releaseTitle = updateRemoteReleaseTitle.orEmpty(),
+                sourceUrl = BuildConfig.UPDATE_MANIFEST_URL
+            )
+            manager.downloadUpdate(updateInfo) { progress ->
+                updateDownloadProgress = progress
+            }.onSuccess { file ->
+                updateDownloadInProgress = false
+                downloadedUpdateFilePath = file.absolutePath
+                updateStatusMessage = "تم تنزيل التحديث. ستظهر شاشة التثبيت الآن."
+                globalInfoMsg = "تم تنزيل التحديث بنجاح."
+                try {
+                    manager.launchInstall(file)
+                } catch (e: Exception) {
+                    globalErrorMsg = e.message ?: "تم تنزيل التحديث، لكن تعذر فتح شاشة التثبيت."
+                }
+            }.onFailure { error ->
+                updateDownloadInProgress = false
+                updateStatusMessage = null
+                globalErrorMsg = error.message ?: "فشل تنزيل التحديث."
+            }
+        }
+    }
+
+    fun installDownloadedUpdate() {
+        val path = downloadedUpdateFilePath ?: run {
+            globalErrorMsg = "لا يوجد ملف تحديث محمّل محلياً."
+            return
+        }
+        val file = File(path)
+        if (!file.exists()) {
+            globalErrorMsg = "ملف التحديث غير موجود على الجهاز."
+            downloadedUpdateFilePath = null
+            return
+        }
+        try {
+            AppUpdateManager(getApplication()).launchInstall(file)
+            updateStatusMessage = "تم فتح شاشة التثبيت."
+        } catch (e: Exception) {
+            globalErrorMsg = e.message ?: "تعذر فتح ملف التحديث."
+        }
+    }
+
+    fun clearUpdateState() {
+        updateCheckInProgress = false
+        updateDownloadInProgress = false
+        updateAvailable = false
+        updateRemoteVersionCode = null
+        updateRemoteVersionName = null
+        updateRemoteReleaseTitle = null
+        updateRemoteReleaseNotes = ""
+        updateRemoteDownloadUrl = ""
+        updateDownloadProgress = 0
+        downloadedUpdateFilePath = null
+        updateStatusMessage = null
+    }
+
+    fun updateCloudAssistantEnabled(enabled: Boolean) {
+        repository.setCloudAssistantEnabled(enabled)
+        isCloudAssistantEnabled = repository.isCloudAssistantEnabled()
+        globalSuccessMsg = if (isCloudAssistantEnabled) {
+            "تم تفعيل التحسين السحابي للمساعد الذكي."
+        } else {
+            "تم ضبط المساعد الذكي على الوضع المحلي فقط."
+        }
+    }
+
     fun saveLawOfficeProfile(lawyerName: String, officeName: String, phone: String, barNumber: String) {
         viewModelScope.launch {
             val current = repository.licenseDao.getLicenseDirect()
@@ -227,9 +418,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun availableCaseCategories(): List<String> {
+        val fixed = repository.fixedCaseCategories()
+        val custom = allCustomCaseCategories.value.map { it.name.trim() }.filter { it.isNotBlank() }
+        return (fixed + custom).distinctBy { repository.normalizeArabic(it) }
+    }
+
+    fun addCustomCaseCategory(name: String) {
+        viewModelScope.launch {
+            repository.addCustomCaseCategory(name)
+                .onSuccess {
+                    globalSuccessMsg = "تم إضافة تصنيف مخصص جديد بنجاح."
+                }
+                .onFailure {
+                    globalErrorMsg = it.message ?: "تعذر إضافة التصنيف المخصص."
+                }
+        }
+    }
+
+    fun removeCustomCaseCategory(categoryId: Int) {
+        viewModelScope.launch {
+            repository.customCaseCategoryDao.deleteById(categoryId)
+            globalSuccessMsg = "تم حذف التصنيف المخصص."
+        }
+    }
+
     // --- Clients Operations ---
     fun saveClient(client: Client, onDone: () -> Unit = {}) {
         viewModelScope.launch {
+            val normalizedName = client.name.trim()
+            val normalizedPhone = client.phone.trim()
+            if (normalizedName.isBlank() || normalizedPhone.isBlank()) {
+                globalErrorMsg = "اسم الموكل ورقم الهاتف مطلوبان."
+                return@launch
+            }
             repository.clientDao.insertClient(client)
             onDone()
         }
@@ -245,6 +467,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // --- Cases Operations ---
     fun saveCase(legalCase: LegalCase, onDone: () -> Unit = {}) {
         viewModelScope.launch {
+            if (legalCase.title.trim().isBlank()) {
+                globalErrorMsg = "عنوان القضية مطلوب."
+                return@launch
+            }
+            if (legalCase.caseNumber.trim().isBlank()) {
+                globalErrorMsg = "رقم القضية مطلوب."
+                return@launch
+            }
+            if (legalCase.clientId <= 0) {
+                globalErrorMsg = "يجب ربط القضية بموكل صالح."
+                return@launch
+            }
             repository.caseDao.insertCase(legalCase)
             onDone()
         }
@@ -260,6 +494,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // --- Sessions Operations ---
     fun saveSession(session: CaseSession, onDone: () -> Unit = {}) {
         viewModelScope.launch {
+            if (session.caseId <= 0) {
+                globalErrorMsg = "يجب ربط الجلسة بقضية."
+                return@launch
+            }
+            if (ensureDateFormat(session.date).isBlank()) {
+                globalErrorMsg = "تاريخ الجلسة يجب أن يكون بصيغة YYYY-MM-DD."
+                return@launch
+            }
             repository.sessionDao.insertSession(session)
             // Update last or next session dates on the case if required
             updateCaseDatesFromSessions(session.caseId)
@@ -278,19 +520,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun updateCaseDatesFromSessions(caseId: Int) {
         viewModelScope.launch {
             val sessionsFlow = repository.sessionDao.getSessionsForCase(caseId).firstOrNull() ?: emptyList()
-            val incoming = sessionsFlow.filter { it.status == "قادمة" }.sortedBy { it.date }
-            val past = sessionsFlow.filter { it.status == "منتهية" }.sortedByDescending { it.date }
+            val now = System.currentTimeMillis()
+            val orderedSessions = sessionsFlow
+                .mapNotNull { session -> parseSessionDateTime(session)?.let { timestamp -> session to timestamp } }
+                .sortedBy { it.second }
+            val incoming = orderedSessions
+                .filter { (session, timestamp) -> timestamp >= now && session.status != "ملغاة" }
+                .map { it.first }
+            val past = orderedSessions
+                .filter { (_, timestamp) -> timestamp < now }
+                .map { it.first }
             
             val targetCase = repository.caseDao.getCaseById(caseId)
             if (targetCase != null) {
-                var nextDate = targetCase.nextSessionDate
-                var lastDate = targetCase.lastSessionDate
-                if (incoming.isNotEmpty()) {
-                    nextDate = incoming.first().date
-                }
-                if (past.isNotEmpty()) {
-                    lastDate = past.first().date
-                }
+                val nextDate = incoming.firstOrNull()?.date.orEmpty()
+                val lastDate = past.lastOrNull()?.date.orEmpty()
                 repository.caseDao.updateCase(targetCase.copy(nextSessionDate = nextDate, lastSessionDate = lastDate))
             }
         }
@@ -318,8 +562,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Fee Tracking ---
+    fun saveFeeRecord(feeRecord: FeeRecord, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.feeDao.insert(feeRecord)
+            onDone()
+            globalSuccessMsg = "تم حفظ سجل الأتعاب بنجاح."
+        }
+    }
+
+    fun deleteFeeRecord(feeRecord: FeeRecord, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.feeDao.delete(feeRecord)
+            onDone()
+            globalSuccessMsg = "تم حذف سجل الأتعاب."
+        }
+    }
+
     // --- Case Files Import ---
-    fun importCaseFile(caseId: Int, clientId: Int, fileName: String, fileUri: Uri, docType: String, docLength: Long) {
+    fun importCaseFile(
+        caseId: Int,
+        clientId: Int,
+        fileName: String,
+        fileUri: Uri,
+        docType: String,
+        docLength: Long,
+        linkedSessionId: Int? = null
+    ) {
         viewModelScope.launch {
             try {
                 val caseTitle = repository.caseDao.getCaseById(caseId)?.title ?: "قضية غير معروفة"
@@ -330,39 +599,88 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val extension = if (fileName.contains('.')) fileName.substringAfterLast('.').lowercase() else "txt"
                 
                 // 2. Check and perform text reading / index
-                val isTxt = extension == "txt"
-                val extractedText = if (isTxt) {
-                    repository.extractAndCleanText(copiedFile, extension)
-                } else {
-                    "" // Save the file but do not simulate text extraction for xlsx/pdf/jpg/png
+                val supportsSearchIndex = LocalBusinessRules.isSearchableTextExtension(extension)
+                val supportsOcr = LocalBusinessRules.isImageExtension(extension)
+                val extractedText = when {
+                    supportsSearchIndex -> repository.extractAndCleanText(copiedFile, extension)
+                    supportsOcr -> repository.extractTextFromImage(copiedFile)
+                    else -> ""
+                }
+                val extractionStatus = when {
+                    supportsSearchIndex && extractedText.isNotBlank() -> "جاهز للبحث النصي"
+                    supportsOcr && extractedText.isNotBlank() -> "تم OCR بنجاح"
+                    supportsOcr -> "صورة محفوظة - OCR غير مكتمل"
+                    else -> "مرفوع ومحفوظ محلياً"
                 }
                 
-                val statusText = if (isTxt) "ناجحة" else "غير مدعوم للبحث في هذه النسخة"
+                // 2b. If the OCR did not return enough data, keep file searchable by metadata
+                val finalExtractedText = if (extractedText.isNotBlank()) extractedText else ""
+                
+                val finalDocType = docType.ifBlank { repository.suggestDocumentType(fileName) }
+                val statusText = extractionStatus
                 
                 // Construct normalized search index matching all search criteria:
                 // file name, doc type, custom manually entered/extracted text, case title, client name
-                val searchIndexContent = "$fileName $docType $caseTitle $clientName $extractedText"
+                val searchIndexContent = "${copiedFile.name} $finalDocType $caseTitle $clientName $finalExtractedText"
                 val normalizedIndex = repository.normalizeArabic(searchIndexContent)
-                
+
                 // 3. Save inside Database
                 val caseFile = CaseFile(
                     caseId = caseId,
                     caseTitle = caseTitle,
                     clientId = clientId,
                     clientName = clientName,
-                    fileName = fileName,
+                    linkedSessionId = linkedSessionId,
+                    fileName = copiedFile.name,
                     filePath = copiedFile.absolutePath,
-                    docType = docType,
+                    docType = finalDocType,
                     fileLength = docLength,
-                    extractedText = extractedText,
+                    extractedText = finalExtractedText,
                     extractionStatus = statusText,
                     normalizedSearchIndex = normalizedIndex
                 )
                 repository.fileDao.insertFile(caseFile)
-                globalSuccessMsg = "تم حفظ المستند محلياً وربطه بالقضية بنجاح."
+                globalSuccessMsg = "تم رفع المستند وربطه بالقضية وفهرسته محلياً بنجاح."
+                AppNotificationManager.notifyDocumentStored(getApplication(), copiedFile.name, caseTitle)
             } catch (e: Exception) {
                 globalErrorMsg = "فشل في حفظ المستند: ${e.message}"
             }
+        }
+    }
+
+    fun suggestDocumentType(fileName: String): String = repository.suggestDocumentType(fileName)
+
+    fun addClientInteraction(
+        client: Client,
+        interactionType: String,
+        title: String,
+        details: String,
+        relatedCase: LegalCase? = null
+    ) {
+        viewModelScope.launch {
+            if (title.trim().isBlank()) {
+                globalErrorMsg = "عنوان سجل التواصل مطلوب."
+                return@launch
+            }
+            repository.clientInteractionDao.insert(
+                ClientInteraction(
+                    clientId = client.id,
+                    clientName = client.name,
+                    interactionType = interactionType,
+                    title = title.trim(),
+                    details = details.trim(),
+                    relatedCaseId = relatedCase?.id,
+                    relatedCaseTitle = relatedCase?.title.orEmpty()
+                )
+            )
+            globalSuccessMsg = "تم حفظ سجل التواصل للموكل."
+        }
+    }
+
+    fun deleteClientInteraction(interaction: ClientInteraction) {
+        viewModelScope.launch {
+            repository.clientInteractionDao.delete(interaction)
+            globalSuccessMsg = "تم حذف سجل التواصل."
         }
     }
 
@@ -399,6 +717,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun exportCaseBundle(legalCase: LegalCase, onShareFile: (File) -> Unit) {
+        viewModelScope.launch {
+            val sessions = repository.sessionDao.getSessionsForCase(legalCase.id).firstOrNull().orEmpty()
+            val tasks = repository.taskDao.getTasksForCase(legalCase.id).firstOrNull().orEmpty()
+            val files = repository.fileDao.getFilesForCase(legalCase.id).firstOrNull().orEmpty()
+            val bundle = repository.exportCaseBundle(legalCase, sessions, tasks, files)
+            if (bundle != null) {
+                globalSuccessMsg = "تم تجهيز حزمة كاملة لملف القضية والمرفقات."
+                onShareFile(bundle)
+            } else {
+                globalErrorMsg = "تعذر تجهيز حزمة القضية."
+            }
+        }
+    }
+
     // --- Generated Documents ---
     fun saveGeneratedDocument(caseId: Int, templateId: Int, title: String, filledFields: String, docContent: String) {
         viewModelScope.launch {
@@ -411,6 +744,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             )
             repository.generatedDocDao.insertGeneratedDocument(generated)
             globalSuccessMsg = "تم حفظ نموذج المستند ضمن القضايا الملحقة لملف القضية بنجاح!"
+            AppNotificationManager.notifyDocumentStored(
+                getApplication(),
+                generated.documentTitle,
+                repository.caseDao.getCaseById(caseId)?.title.orEmpty()
+            )
         }
     }
 
@@ -434,6 +772,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 lastBackupSizeBytes = backup.length()
                 onShareFile(backup)
                 globalSuccessMsg = "تم إنشاء نسخة احتياطية شاملة (قاعدة البيانات + المرفقات) باسم: ${backup.name}."
+                AppNotificationManager.notifyBackupCreated(getApplication(), backup.name)
             } else {
                 globalErrorMsg = "فشل إنشاء نسخة الاحتياطية. الرجاء المحاولة مجدداً."
             }
@@ -447,11 +786,49 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val result = repository.restoreDatabaseFile(backupUri)
             if (result) {
                 globalSuccessMsg = "تم استعادة كافة البيانات والملفات السابقة بنجاح! يتم الآن إعادة تحميل التطبيق."
+                AppNotificationManager.notifyInfo(
+                    getApplication(),
+                    "تمت الاستعادة",
+                    "تم استرداد النسخة الاحتياطية بنجاح."
+                )
                 onRestart()
             } else {
                 globalErrorMsg = "فشل استيراد النسخة الاحتياطية. تأكد من سلامة الملف وصيغة .mpb"
             }
             isBackupInProgress = false
+        }
+    }
+
+    fun cleanupDuplicateCaseFiles() {
+        viewModelScope.launch {
+            val removed = repository.cleanupDuplicateCaseFiles()
+            globalSuccessMsg = if (removed > 0) {
+                "تم حذف $removed ملف/مرجع مكرر من أرشيف القضايا."
+            } else {
+                "لم يتم العثور على ملفات مكررة داخل أرشيف القضايا."
+            }
+        }
+    }
+
+    fun cleanupMissingFileReferences() {
+        viewModelScope.launch {
+            val removed = repository.cleanupMissingFileReferences()
+            globalSuccessMsg = if (removed > 0) {
+                "تم حذف $removed مرجع ملف مفقود من الفهرس."
+            } else {
+                "لا توجد مراجع ملفات مفقودة حالياً."
+            }
+        }
+    }
+
+    fun cleanupDuplicateGeneratedDocuments() {
+        viewModelScope.launch {
+            val removed = repository.cleanupDuplicateGeneratedDocuments()
+            globalSuccessMsg = if (removed > 0) {
+                "تم حذف $removed مستند مولد مكرر."
+            } else {
+                "لا توجد مستندات مولدة مكررة."
+            }
         }
     }
 
@@ -497,6 +874,56 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 "result" to listOf("النتيجة", "result"),
                 "notes" to listOf("ملاحظات", "notes")
             )
+            ImportTarget.TASKS -> mapOf(
+                "title" to listOf("عنوان المهمة", "المهمة", "task", "title"),
+                "description" to listOf("الوصف", "description"),
+                "due_date" to listOf("تاريخ الاستحقاق", "due date", "due"),
+                "priority" to listOf("الأولوية", "priority"),
+                "status" to listOf("الحالة", "status"),
+                "case_number" to listOf("رقم القضية", "case number"),
+                "case_title" to listOf("عنوان القضية", "case title"),
+                "client_name" to listOf("اسم العميل", "client")
+            )
+            ImportTarget.FILES_METADATA -> mapOf(
+                "file_name" to listOf("اسم الملف", "file", "file name"),
+                "doc_type" to listOf("نوع المستند", "doc type", "document type"),
+                "case_number" to listOf("رقم القضية", "case number"),
+                "case_title" to listOf("عنوان القضية", "case title"),
+                "client_name" to listOf("اسم العميل", "client"),
+                "file_path" to listOf("مسار الملف", "path", "file path"),
+                "file_length" to listOf("حجم الملف", "size", "length"),
+                "extracted_text" to listOf("النص المستخرج", "extracted", "text"),
+                "notes" to listOf("ملاحظات", "notes")
+            )
+            ImportTarget.GENERATED_DOCS -> mapOf(
+                "document_title" to listOf("عنوان المستند", "document title", "title"),
+                "content" to listOf("المحتوى", "content", "text"),
+                "case_number" to listOf("رقم القضية", "case number"),
+                "case_title" to listOf("عنوان القضية", "case title"),
+                "template_id" to listOf("template id", "رقم القالب"),
+                "filled_fields_json" to listOf("الحقول", "fields", "json")
+            )
+        }
+    }
+
+    fun generateImportReportText(preview: ImportPreview): String {
+        return buildString {
+            appendLine("تقرير معاينة الاستيراد")
+            appendLine("-----------------------")
+            appendLine("الهدف: ${preview.target}")
+            appendLine("إجمالي الصفوف: ${preview.totalRows}")
+            appendLine("الصالحة: ${preview.validRows}")
+            appendLine("غير الصالحة: ${preview.invalidRows}")
+            appendLine("المكررات: ${preview.duplicates}")
+            appendLine("التحذيرات: ${preview.warnings}")
+            appendLine()
+            preview.rows.take(200).forEach { row ->
+                appendLine("صف ${row.rowNumber} | ${row.status} | ${row.reason}")
+            }
+            if (preview.rows.size > 200) {
+                appendLine()
+                appendLine("... تم اختصار التقرير إلى أول 200 صف")
+            }
         }
     }
 
@@ -535,18 +962,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun ensureDateFormat(dateText: String): String {
-        val raw = dateText.trim()
-        if (raw.isBlank()) return ""
-        val slash = raw.split("/")
-        if (slash.size == 3) {
-            val day = slash[0].padStart(2, '0')
-            val month = slash[1].padStart(2, '0')
-            val year = slash[2]
-            return "$year-$month-$day"
-        }
-        val dash = raw.split("-")
-        if (dash.size == 3 && dash[0].length == 4) return raw
-        return raw
+        return LocalBusinessRules.normalizeDateInput(dateText)
     }
 
     fun buildImportPreview(
@@ -631,6 +1047,57 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             return@forEachIndexed
                         }
                         previewRows += ImportRowPreview(rowNo, "VALID", "جاهز للاستيراد", fieldValues + ("session_date" to sessionDate))
+                    }
+                    ImportTarget.TASKS -> {
+                        val title = fieldValues["title"].orEmpty().trim()
+                        if (title.isBlank()) {
+                            previewRows += ImportRowPreview(rowNo, "INVALID", "عنوان المهمة مطلوب", fieldValues)
+                            return@forEachIndexed
+                        }
+                        val caseNumber = fieldValues["case_number"].orEmpty().trim()
+                        val caseTitle = fieldValues["case_title"].orEmpty().trim()
+                        val linkedCase = findCaseByNumberOrTitle(existingCases, caseNumber, caseTitle)
+                        if (caseNumber.isNotBlank() || caseTitle.isNotBlank()) {
+                            if (linkedCase == null) {
+                                warnings++
+                                previewRows += ImportRowPreview(rowNo, "INVALID", "تعذر ربط المهمة بالقضية المحددة", fieldValues)
+                                return@forEachIndexed
+                            }
+                        }
+                        previewRows += ImportRowPreview(rowNo, "VALID", "جاهز للاستيراد", fieldValues)
+                    }
+                    ImportTarget.FILES_METADATA -> {
+                        val fileName = fieldValues["file_name"].orEmpty().trim()
+                        if (fileName.isBlank()) {
+                            previewRows += ImportRowPreview(rowNo, "INVALID", "اسم الملف مطلوب", fieldValues)
+                            return@forEachIndexed
+                        }
+                        val caseNumber = fieldValues["case_number"].orEmpty().trim()
+                        val caseTitle = fieldValues["case_title"].orEmpty().trim()
+                        val linkedCase = findCaseByNumberOrTitle(existingCases, caseNumber, caseTitle)
+                        if (linkedCase == null) {
+                            warnings++
+                            previewRows += ImportRowPreview(rowNo, "INVALID", "تعذر ربط الملف بأي قضية", fieldValues)
+                            return@forEachIndexed
+                        }
+                        previewRows += ImportRowPreview(rowNo, "VALID", "جاهز للاستيراد", fieldValues)
+                    }
+                    ImportTarget.GENERATED_DOCS -> {
+                        val title = fieldValues["document_title"].orEmpty().trim()
+                        val content = fieldValues["content"].orEmpty().trim()
+                        if (title.isBlank() || content.isBlank()) {
+                            previewRows += ImportRowPreview(rowNo, "INVALID", "عنوان المستند والمحتوى مطلوبان", fieldValues)
+                            return@forEachIndexed
+                        }
+                        val caseNumber = fieldValues["case_number"].orEmpty().trim()
+                        val caseTitle = fieldValues["case_title"].orEmpty().trim()
+                        val linkedCase = findCaseByNumberOrTitle(existingCases, caseNumber, caseTitle)
+                        if (linkedCase == null) {
+                            warnings++
+                            previewRows += ImportRowPreview(rowNo, "INVALID", "تعذر ربط المستند المولد بالقضية", fieldValues)
+                            return@forEachIndexed
+                        }
+                        previewRows += ImportRowPreview(rowNo, "VALID", "جاهز للاستيراد", fieldValues)
                     }
                 }
             }
@@ -767,6 +1234,83 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         repository.sessionDao.insertSession(session)
                         importedCount++
                     }
+                    ImportTarget.TASKS -> {
+                        val title = row.values["title"].orEmpty().trim()
+                        if (title.isBlank()) continue
+                        val caseNumber = row.values["case_number"].orEmpty().trim()
+                        val caseTitle = row.values["case_title"].orEmpty().trim()
+                        val linkedCase = findCaseByNumberOrTitle(existingCases, caseNumber, caseTitle)
+
+                        val clientFromCase = linkedCase?.let { c ->
+                            existingClients.firstOrNull { it.id == c.clientId }
+                        }
+
+                        val task = LegalTask(
+                            title = title,
+                            description = row.values["description"].orEmpty(),
+                            dueDate = ensureDateFormat(row.values["due_date"].orEmpty()),
+                            priority = row.values["priority"].orEmpty().ifBlank { "متوسطة" },
+                            status = row.values["status"].orEmpty().ifBlank { "مفتوحة" },
+                            caseId = linkedCase?.id,
+                            caseTitle = linkedCase?.title,
+                            clientId = clientFromCase?.id,
+                            clientName = clientFromCase?.name
+                        )
+                        repository.taskDao.insertTask(task)
+                        importedCount++
+                    }
+                    ImportTarget.FILES_METADATA -> {
+                        val fileName = row.values["file_name"].orEmpty().trim()
+                        if (fileName.isBlank()) continue
+
+                        val caseNumber = row.values["case_number"].orEmpty().trim()
+                        val caseTitle = row.values["case_title"].orEmpty().trim()
+                        val linkedCase = findCaseByNumberOrTitle(existingCases, caseNumber, caseTitle) ?: continue
+
+                        val combinedText = buildString {
+                            append(row.values["extracted_text"].orEmpty())
+                            val notes = row.values["notes"].orEmpty()
+                            if (notes.isNotBlank()) {
+                                append("\n")
+                                append(notes)
+                            }
+                        }
+
+                        val file = CaseFile(
+                            caseId = linkedCase.id,
+                            caseTitle = linkedCase.title,
+                            clientId = linkedCase.clientId,
+                            clientName = linkedCase.clientName,
+                            fileName = fileName,
+                            filePath = row.values["file_path"].orEmpty().ifBlank { "metadata_only" },
+                            docType = row.values["doc_type"].orEmpty().ifBlank { "مستند" },
+                            fileLength = row.values["file_length"].orEmpty().toLongOrNull() ?: 0L,
+                            extractedText = combinedText,
+                            extractionStatus = "مستورد metadata",
+                            normalizedSearchIndex = repository.normalizeArabic("${linkedCase.title} ${linkedCase.clientName} $fileName ${row.values["doc_type"].orEmpty()} $combinedText")
+                        )
+                        repository.fileDao.insertFile(file)
+                        importedCount++
+                    }
+                    ImportTarget.GENERATED_DOCS -> {
+                        val title = row.values["document_title"].orEmpty().trim()
+                        val content = row.values["content"].orEmpty().trim()
+                        if (title.isBlank() || content.isBlank()) continue
+
+                        val caseNumber = row.values["case_number"].orEmpty().trim()
+                        val caseTitle = row.values["case_title"].orEmpty().trim()
+                        val linkedCase = findCaseByNumberOrTitle(existingCases, caseNumber, caseTitle) ?: continue
+
+                        val generated = GeneratedDocument(
+                            caseId = linkedCase.id,
+                            templateId = row.values["template_id"].orEmpty().toIntOrNull() ?: 0,
+                            documentTitle = title,
+                            filledFieldsJson = row.values["filled_fields_json"].orEmpty().ifBlank { "{}" },
+                            content = content
+                        )
+                        repository.generatedDocDao.insertGeneratedDocument(generated)
+                        importedCount++
+                    }
                 }
             }
             globalSuccessMsg = "تم استيراد $importedCount صف بنجاح."
@@ -803,6 +1347,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return due < now
     }
 
+    private fun isFeeOverdue(fee: FeeRecord, now: Long): Boolean {
+        val outstanding = (fee.totalAmount - fee.paidAmount).coerceAtLeast(0.0)
+        if (outstanding <= 0.0) return false
+        val due = parseDate(fee.dueDate) ?: return false
+        return due < now && fee.status != "مدفوعة"
+    }
+
     private fun extractLastCaseNote(notes: String): String {
         if (notes.isBlank()) return "لا توجد"
         return notes.split("\n\n").last().trim().takeIf { it.isNotBlank() } ?: "لا توجد"
@@ -826,6 +1377,225 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return tokens.subList(start, end).joinToString(" ")
     }
 
+    private fun findCaseByNumberOrTitle(
+        existingCases: List<LegalCase>,
+        caseNumber: String,
+        caseTitle: String
+    ): LegalCase? {
+        return existingCases.firstOrNull {
+            (caseNumber.isNotBlank() && repository.normalizeArabic(it.caseNumber) == repository.normalizeArabic(caseNumber)) ||
+                (caseTitle.isNotBlank() && repository.normalizeArabic(it.title) == repository.normalizeArabic(caseTitle))
+        }
+    }
+
+    fun caseReadinessScore(legalCase: LegalCase): Int {
+        val sessions = allSessions.value.filter { it.caseId == legalCase.id }
+        val files = allFiles.value.filter { it.caseId == legalCase.id }
+        val tasks = allTasks.value.filter { it.caseId == legalCase.id }
+        val rules = CaseRulesEngine.getRules(legalCase.caseType, repository::normalizeArabic)
+
+        var score = 0
+        if (legalCase.summary.isNotBlank()) score += 15
+        if (legalCase.opponentName.isNotBlank()) score += 10
+        if (legalCase.courtName.isNotBlank()) score += 10
+        if (sessions.isNotEmpty()) score += 20
+        if (tasks.any { it.status == "منتهية" }) score += 10
+        if (files.isNotEmpty()) score += 10
+
+        val matchedDocs = rules.requiredDocuments.count { required ->
+            files.any { file -> requiredDocMatched(required, file) }
+        }
+        if (rules.requiredDocuments.isNotEmpty()) {
+            score += ((matchedDocs.toDouble() / rules.requiredDocuments.size.toDouble()) * 25.0).toInt()
+        }
+        return score.coerceIn(0, 100)
+    }
+
+    fun caseReadinessLabel(legalCase: LegalCase): String {
+        return LocalBusinessRules.readinessLabel(caseReadinessScore(legalCase))
+    }
+
+    fun localAlertsSummary(): List<String> {
+        val now = System.currentTimeMillis()
+        val upcomingSessions = allSessions.value
+            .mapNotNull { session -> parseSessionDateTime(session)?.let { session to it } }
+            .filter { (session, time) -> time >= now && session.status != "ملغاة" && session.status != "منتهية" }
+            .sortedBy { it.second }
+            .take(3)
+            .map { (session, _) -> "جلسة قريبة: ${session.caseTitle} - ${session.date} ${session.time}" }
+
+        val overdueTasks = allTasks.value
+            .filter { isTaskOverdue(it, now) }
+            .take(3)
+            .map { task -> "مهمة متأخرة: ${task.title}${task.caseTitle?.let { " | $it" } ?: ""}" }
+
+        val overdueFees = allFeeRecords.value
+            .filter { isFeeOverdue(it, now) }
+            .take(3)
+            .map { fee -> "أتعاب متأخرة: ${fee.title} | ${fee.clientName}${fee.caseTitle?.let { " | $it" } ?: ""}" }
+
+        return (upcomingSessions + overdueTasks + overdueFees).ifEmpty { listOf("لا توجد تنبيهات محلية عاجلة حالياً.") }
+    }
+
+    private suspend fun composeHybridAssistantOutput(prompt: String, offlineText: String): String {
+        val onlineResult = repository.requestOnlineAssistantAnswer(prompt = prompt, offlineSummary = offlineText)
+        val cloudText = onlineResult?.getOrNull()?.trim().orEmpty()
+        if (cloudText.isBlank()) return offlineText
+        return buildString {
+            appendLine(offlineText)
+            appendLine()
+            appendLine("[تحسين سحابي اختياري]")
+            appendLine(cloudText)
+        }
+    }
+
+    fun sendSmartAssistantChatMessage(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
+        val normalizedMessage = repository.normalizeArabic(userMessage)
+        when {
+            normalizedMessage.contains("ملخص") || normalizedMessage.contains("لخص") -> {
+                getSmartAssistantSummary(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("خطة") || normalizedMessage.contains("خطه") -> {
+                getCaseActionPlan(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("مستند") && (normalizedMessage.contains("ناقص") || normalizedMessage.contains("نواقص")) -> {
+                getMissingDocumentsSuggestion(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("جلسة") && (normalizedMessage.contains("قادمة") || normalizedMessage.contains("الجاية") || normalizedMessage.contains("القادمة") || normalizedMessage.contains("قريبة")) -> {
+                getNextSessionAssistant(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة") -> {
+                getOpenTasksAssistant(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") -> {
+                val caseType = (allCases.value + archivedCases.value).firstOrNull { it.id == caseId }?.caseType.orEmpty()
+                getSuggestedTemplatesForCase(caseType, onResult)
+                return
+            }
+            normalizedMessage.contains("تجهيز") || normalizedMessage.contains("استعداد") -> {
+                getSessionPrepAssistant(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("مذكرة") || normalizedMessage.contains("صياغة") || normalizedMessage.contains("مسودة") -> {
+                draftCaseMemo(caseId, onResult)
+                return
+            }
+            normalizedMessage.contains("جاهزية") || normalizedMessage.contains("جاهز") -> {
+                answerCaseQuestion(caseId, "readiness", onResult)
+                return
+            }
+            normalizedMessage.contains("آخر جلسة") || normalizedMessage.contains("اخر جلسه") -> {
+                answerCaseQuestion(caseId, "last_session", onResult)
+                return
+            }
+            normalizedMessage.contains("خصم") -> {
+                answerCaseQuestion(caseId, "opponent", onResult)
+                return
+            }
+            normalizedMessage.contains("نواقص") || normalizedMessage.contains("الناقصة") || normalizedMessage.contains("الملفات الناقصة") -> {
+                answerCaseQuestion(caseId, "missing_docs", onResult)
+                return
+            }
+            normalizedMessage.contains("بحث") || normalizedMessage.contains("ابحث") -> {
+                val query = userMessage
+                    .replace("ابحث داخل الملفات", "", ignoreCase = true)
+                    .replace("بحث داخل الملفات", "", ignoreCase = true)
+                    .replace("ابحث", "", ignoreCase = true)
+                    .replace("بحث", "", ignoreCase = true)
+                    .trim()
+                searchInsideCaseFiles(caseId, query.ifBlank { userMessage }) { text, _ -> onResult(text) }
+                return
+            }
+            normalizedMessage.contains("اتعاب") || normalizedMessage.contains("الأتعاب") || normalizedMessage.contains("اعمال") -> {
+                viewModelScope.launch {
+                    isAssistantLoading = true
+                    val legalCase = repository.caseDao.getCaseById(caseId)
+                    if (legalCase == null) {
+                        isAssistantLoading = false
+                        onResult("تعذر تحميل القضية.")
+                        return@launch
+                    }
+                    val fees = repository.feeDao.getForCase(caseId).firstOrNull().orEmpty()
+                    val totalOutstanding = fees.sumOf { (it.totalAmount - it.paidAmount).coerceAtLeast(0.0) }
+                    val overdue = fees.count { isFeeOverdue(it, System.currentTimeMillis()) }
+                    val text = buildString {
+                        appendLine("ملخص الأتعاب للقضية: ${legalCase.title}")
+                        appendLine("إجمالي السجلات: ${fees.size}")
+                        appendLine("الإجمالي المستحق: ${String.format(Locale.ENGLISH, "%.2f", totalOutstanding)} ${fees.firstOrNull()?.currency ?: "ج.م"}")
+                        appendLine("السجلات المتأخرة: $overdue")
+                        if (fees.isEmpty()) {
+                            appendLine("لا توجد سجلات أتعاب مسجلة لهذه القضية حالياً.")
+                        } else {
+                            appendLine("تفاصيل مختصرة:")
+                            fees.take(6).forEach { fee ->
+                                appendLine("- ${fee.title} | مستحق: ${fee.totalAmount} | مدفوع: ${fee.paidAmount} | الحالة: ${fee.status}")
+                            }
+                        }
+                    }
+                    val finalText = composeHybridAssistantOutput(
+                        prompt = userMessage,
+                        offlineText = text
+                    )
+                    isAssistantLoading = false
+                    onResult(finalText)
+                }
+                return
+            }
+        }
+
+        viewModelScope.launch {
+            isAssistantLoading = true
+            val legalCase = repository.caseDao.getCaseById(caseId)
+            if (legalCase == null) {
+                isAssistantLoading = false
+                onResult("تعذر تحميل القضية.")
+                return@launch
+            }
+            val sessionsList = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
+            val tasksList = repository.taskDao.getTasksForCase(caseId).firstOrNull().orEmpty()
+            val filesList = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
+            val openTasks = tasksList.filter(::isTaskOpen)
+            val upcomingSession = sessionsList
+                .filter {
+                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= System.currentTimeMillis() &&
+                        it.status != "منتهية" &&
+                        it.status != "ملغاة"
+                }
+                .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
+            val text = buildString {
+                appendLine("المساعد الذكي معك داخل القضية: ${legalCase.title}")
+                appendLine("القضية: ${legalCase.caseNumber}/${legalCase.caseYear}")
+                appendLine("الموكل: ${legalCase.clientName}")
+                appendLine("الخصم: ${legalCase.opponentName.ifBlank { "غير محدد" }}")
+                appendLine("المحكمة: ${legalCase.courtName.ifBlank { "غير محددة" }}")
+                appendLine("الدائرة: ${legalCase.courtCircle.ifBlank { "غير محددة" }}")
+                appendLine("النوع: ${legalCase.caseType}")
+                appendLine("الجاهزية: ${caseReadinessScore(legalCase)}% - ${caseReadinessLabel(legalCase)}")
+                appendLine("الملفات: ${filesList.size} | المهام المفتوحة: ${openTasks.size}")
+                appendLine("الجلسة القادمة: ${upcomingSession?.date ?: legalCase.nextSessionDate.ifBlank { "لا توجد" }}")
+                appendLine()
+                appendLine("يمكنك أن تسألني مباشرة مثل:")
+                appendLine("• لخص القضية")
+                appendLine("• جهز الجلسة القادمة")
+                appendLine("• ما المستندات الناقصة؟")
+                appendLine("• ما آخر جلسة؟")
+                appendLine("• اكتب مسودة مذكرة")
+                appendLine("• اعرض الأتعاب")
+            }
+            val finalText = composeHybridAssistantOutput(
+                prompt = userMessage,
+                offlineText = text
+            )
+            isAssistantLoading = false
+            onResult(finalText)
+        }
+    }
+
     fun getSmartAssistantSummary(caseId: Int, onResult: (String) -> Unit) {
         viewModelScope.launch {
             isAssistantLoading = true
@@ -842,9 +1612,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val openTasks = tasksList.filter(::isTaskOpen)
 
             val sortedByDate = sessionsList.sortedBy { parseSessionDateTime(it) ?: Long.MAX_VALUE }
-            val upcoming = sortedByDate.firstOrNull { (parseSessionDateTime(it) ?: Long.MAX_VALUE) >= System.currentTimeMillis() }
+            val upcoming = sortedByDate.firstOrNull {
+                (parseSessionDateTime(it) ?: Long.MAX_VALUE) >= System.currentTimeMillis() &&
+                    it.status != "منتهية" &&
+                    it.status != "ملغاة"
+            }
             val lastSession = sessionsList
-                .filter { (parseSessionDateTime(it) ?: Long.MIN_VALUE) < System.currentTimeMillis() }
+                .filter {
+                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) < System.currentTimeMillis() &&
+                        it.status != "ملغاة"
+                }
                 .maxByOrNull { parseSessionDateTime(it) ?: Long.MIN_VALUE }
 
             val text = buildString {
@@ -864,8 +1641,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 appendLine("• عدد المهام المفتوحة: ${openTasks.size}")
                 appendLine("• آخر ملاحظة: ${extractLastCaseNote(caseObj.notes)}")
             }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "لخص القضية وقدم خطوات عملية مختصرة.",
+                offlineText = text
+            )
             isAssistantLoading = false
-            onResult(text)
+            onResult(finalText)
         }
     }
 
@@ -899,8 +1680,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (files.isEmpty()) appendLine("• لا توجد ملفات مرفوعة")
                 files.forEach { appendLine("• ${it.fileName} (${it.docType})") }
             }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "حلل نواقص المستندات المطلوبة للقضية واقترح أولويات الاستكمال.",
+                offlineText = text
+            )
             isAssistantLoading = false
-            onResult(text)
+            onResult(finalText)
         }
     }
 
@@ -910,7 +1695,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val sessions = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
             val now = System.currentTimeMillis()
             val next = sessions
-                .filter { (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= now }
+                .filter {
+                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= now &&
+                        it.status != "منتهية" &&
+                        it.status != "ملغاة"
+                }
                 .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
 
             val text = if (next == null) {
@@ -925,8 +1714,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     appendLine("• المطلوب: ${next.requirements.ifBlank { "لا يوجد" }}")
                 }
             }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "اقترح تجهيزات سريعة للجلسة القادمة وفق البيانات الحالية.",
+                offlineText = text
+            )
             isAssistantLoading = false
-            onResult(text)
+            onResult(finalText)
         }
     }
 
@@ -948,8 +1741,183 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     appendLine("يمكنك فتح تبويب المهام وتعليم أي مهمة كمكتملة مباشرة.")
                 }
             }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "رتب المهام المفتوحة حسب الأولوية والتنفيذ العملي.",
+                offlineText = text
+            )
             isAssistantLoading = false
-            onResult(text)
+            onResult(finalText)
+        }
+    }
+
+    fun getCaseActionPlan(caseId: Int, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            isAssistantLoading = true
+            val now = System.currentTimeMillis()
+            val caseObj = repository.caseDao.getCaseById(caseId)
+            if (caseObj == null) {
+                isAssistantLoading = false
+                onResult("تعذر تحميل القضية.")
+                return@launch
+            }
+
+            val sessions = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
+            val tasks = repository.taskDao.getTasksForCase(caseId).firstOrNull().orEmpty()
+            val files = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
+            val rules = CaseRulesEngine.getRules(caseObj.caseType, repository::normalizeArabic)
+
+            val nextSession = sessions
+                .filter {
+                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= now &&
+                        it.status != "منتهية" &&
+                        it.status != "ملغاة"
+                }
+                .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
+            val overdueTasks = tasks.filter { isTaskOverdue(it, now) }
+            val openTasks = tasks.filter(::isTaskOpen)
+            val missingDocuments = rules.requiredDocuments.filterNot { required ->
+                files.any { file -> requiredDocMatched(required, file) }
+            }
+
+            val text = buildString {
+                appendLine("خطة عمل تنفيذية للقضية: ${caseObj.title}")
+                appendLine("1. راجع بيانات الملف الأساسية وتأكد من اكتمال رقم القضية والمحكمة والدائرة.")
+                if (nextSession != null) {
+                    appendLine("2. جهّز للجلسة القادمة بتاريخ ${nextSession.date}${nextSession.time.takeIf { it.isNotBlank() }?.let { " الساعة $it" } ?: ""}.")
+                    appendLine("   المطلوب حالياً: ${nextSession.requirements.ifBlank { "مراجعة المستندات والمذكرة قبل الجلسة." }}")
+                } else {
+                    appendLine("2. لا توجد جلسة قادمة مسجلة؛ أضف موعد الجلسة التالية أو حدّث موقف الدعوى.")
+                }
+                if (missingDocuments.isNotEmpty()) {
+                    appendLine("3. استكمل المستندات الناقصة بالأولوية:")
+                    missingDocuments.take(4).forEach { appendLine("   • $it") }
+                    if (missingDocuments.size > 4) appendLine("   • وهناك ${missingDocuments.size - 4} مستندات أخرى تحتاج مراجعة.")
+                } else {
+                    appendLine("3. ملف المستندات الأساسي مكتمل وفق نوع القضية الحالي.")
+                }
+                if (openTasks.isNotEmpty()) {
+                    appendLine("4. نفّذ المهام المفتوحة التالية:")
+                    openTasks.take(4).forEach { task ->
+                        val overdue = if (isTaskOverdue(task, now)) " [متأخرة]" else ""
+                        appendLine("   • ${task.title}$overdue")
+                    }
+                } else {
+                    appendLine("4. لا توجد مهام مفتوحة؛ أنشئ مهام متابعة عملية حتى لا يظل الملف بدون Tracking.")
+                }
+                appendLine("5. حدّث ملخص القضية وملاحظات الدفاع بعد كل خطوة تنفيذية.")
+                if (overdueTasks.isNotEmpty()) {
+                    appendLine("تنبيه عاجل: يوجد ${overdueTasks.size} مهام متأخرة تحتاج إغلاقاً أو إعادة جدولة.")
+                }
+            }
+
+            val finalText = composeHybridAssistantOutput(
+                prompt = "حوّل بيانات القضية الحالية إلى خطة عمل تنفيذية قصيرة وواضحة للمحامي.",
+                offlineText = text
+            )
+            isAssistantLoading = false
+            onResult(finalText)
+        }
+    }
+
+    fun getSessionPrepAssistant(caseId: Int, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            isAssistantLoading = true
+            val caseObj = repository.caseDao.getCaseById(caseId)
+            if (caseObj == null) {
+                isAssistantLoading = false
+                onResult("تعذر تحميل القضية.")
+                return@launch
+            }
+            val sessions = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
+            val files = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
+            val next = sessions
+                .filter {
+                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= System.currentTimeMillis() &&
+                        it.status != "منتهية" &&
+                        it.status != "ملغاة"
+                }
+                .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
+            val rules = CaseRulesEngine.getRules(caseObj.caseType, repository::normalizeArabic)
+            val missing = rules.requiredDocuments.filterNot { required -> files.any { requiredDocMatched(required, it) } }
+            val text = buildString {
+                if (next == null) {
+                    appendLine("لا توجد جلسة قادمة مسجلة لهذه القضية.")
+                } else {
+                    appendLine("تجهيز الجلسة القادمة")
+                    appendLine("• القضية: ${caseObj.title}")
+                    appendLine("• الموعد: ${next.date} ${next.time.ifBlank { "" }}")
+                    appendLine("• المحكمة: ${next.court.ifBlank { caseObj.courtName }}")
+                    appendLine("• المطلوب بالجلسة: ${next.requirements.ifBlank { "مراجعة الملف والمذكرة قبل الجلسة." }}")
+                    appendLine("• المستندات الناقصة الأهم:")
+                    if (missing.isEmpty()) appendLine("  - لا توجد نواقص أساسية وفق نوع القضية")
+                    missing.take(5).forEach { appendLine("  - $it") }
+                }
+            }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "جهز المحامي للجلسة القادمة بخطوات مختصرة وتنبيهات عملية.",
+                offlineText = text
+            )
+            isAssistantLoading = false
+            onResult(finalText)
+        }
+    }
+
+    fun draftCaseMemo(caseId: Int, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            isAssistantLoading = true
+            val caseObj = repository.caseDao.getCaseById(caseId)
+            if (caseObj == null) {
+                isAssistantLoading = false
+                onResult("تعذر تحميل القضية.")
+                return@launch
+            }
+            val text = buildString {
+                appendLine("مسودة أولية لمذكرة/طلب في القضية")
+                appendLine("عنوان القضية: ${caseObj.title}")
+                appendLine("رقمها: ${caseObj.caseNumber}/${caseObj.caseYear}")
+                appendLine("المحكمة: ${caseObj.courtName} - ${caseObj.courtCircle}")
+                appendLine("الموكل: ${caseObj.clientName}")
+                appendLine("الخصم: ${caseObj.opponentName.ifBlank { "................" }}")
+                appendLine()
+                appendLine("أولاً: الوقائع")
+                appendLine(caseObj.summary.ifBlank { "يُستكمل عرض الوقائع بحسب مستندات الملف." })
+                appendLine()
+                appendLine("ثانياً: الطلبات")
+                appendLine("- يلتمس الطالب/المدعى اتخاذ ما يلزم قانوناً.")
+                appendLine("- تُستكمل الطلبات التفصيلية وفق نوع الدعوى والمستندات.")
+                appendLine()
+                appendLine("ثالثاً: المستندات المؤيدة")
+                appendLine("- تُدرج حافظة المستندات وفق المرفوع داخل ملف القضية.")
+            }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "أنشئ مسودة قانونية أولية واضحة ومهنية اعتماداً على بيانات القضية.",
+                offlineText = text
+            )
+            isAssistantLoading = false
+            onResult(finalText)
+        }
+    }
+
+    fun answerCaseQuestion(caseId: Int, questionKey: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val caseObj = repository.caseDao.getCaseById(caseId)
+            if (caseObj == null) {
+                onResult("تعذر تحميل القضية.")
+                return@launch
+            }
+            when (questionKey) {
+                "last_session" -> {
+                    val sessions = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
+                    val last = sessions
+                        .filter { (parseSessionDateTime(it) ?: Long.MIN_VALUE) < System.currentTimeMillis() }
+                        .maxByOrNull { parseSessionDateTime(it) ?: Long.MIN_VALUE }
+                    onResult(last?.let { "آخر جلسة كانت بتاريخ ${it.date} ${it.time} بعنوان ${it.title}." } ?: "لا توجد جلسات سابقة مسجلة.")
+                }
+                "missing_docs" -> getMissingDocumentsSuggestion(caseId, onResult)
+                "opponent" -> onResult("الخصم المسجل في هذه القضية: ${caseObj.opponentName.ifBlank { "غير محدد" }}")
+                "readiness" -> onResult("جاهزية القضية الحالية: ${caseReadinessScore(caseObj)}% - ${caseReadinessLabel(caseObj)}")
+                else -> onResult("السؤال غير مدعوم حالياً.")
+            }
         }
     }
 
@@ -974,8 +1942,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     appendLine("يمكنك فتح أي قالب وتوليد مستند ثم حفظه داخل القضية.")
                 }
             }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "رشح أفضل القوالب المتاحة لنوع القضية مع استخدام عملي.",
+                offlineText = text
+            )
             isAssistantLoading = false
-            onResult(text)
+            onResult(finalText)
         }
     }
 
@@ -1044,8 +2016,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 appendLine("أسئلة مهمة:")
                 rules.importantQuestions.forEach { appendLine("• $it") }
             }
+            val finalText = composeHybridAssistantOutput(
+                prompt = "حوّل القائمة إلى خطوات تنفيذ يومية قصيرة ومنظمة.",
+                offlineText = checklistText
+            )
             isAssistantLoading = false
-            onResult(checklistText)
+            onResult(finalText)
         }
     }
 }

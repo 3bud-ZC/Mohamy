@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -12,11 +14,14 @@ import androidx.room.RoomDatabase
         CaseSession::class,
         LegalTask::class,
         CaseFile::class,
+        ClientInteraction::class,
         LegalTemplate::class,
         GeneratedDocument::class,
+        FeeRecord::class,
+        CustomCaseCategory::class,
         LicenseCache::class
     ],
-    version = 2,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,8 +30,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun taskDao(): TaskDao
     abstract fun fileDao(): FileDao
+    abstract fun clientInteractionDao(): ClientInteractionDao
     abstract fun templateDao(): TemplateDao
     abstract fun generatedDocDao(): GeneratedDocDao
+    abstract fun feeDao(): FeeDao
+    abstract fun customCaseCategoryDao(): CustomCaseCategoryDao
     abstract fun licenseDao(): LicenseDao
 
     companion object {
@@ -35,6 +43,70 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS custom_case_categories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        normalizedName TEXT NOT NULL,
+                        createdDate INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_custom_case_categories_normalizedName ON custom_case_categories(normalizedName)"
+                )
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE files ADD COLUMN linkedSessionId INTEGER")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS client_interactions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        clientId INTEGER NOT NULL,
+                        clientName TEXT NOT NULL,
+                        interactionType TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        details TEXT NOT NULL,
+                        relatedCaseId INTEGER,
+                        relatedCaseTitle TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS fee_records (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        clientId INTEGER NOT NULL,
+                        clientName TEXT NOT NULL,
+                        caseId INTEGER,
+                        caseTitle TEXT,
+                        title TEXT NOT NULL,
+                        totalAmount REAL NOT NULL,
+                        paidAmount REAL NOT NULL,
+                        currency TEXT NOT NULL,
+                        dueDate TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        paymentMethod TEXT NOT NULL,
+                        notes TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -42,7 +114,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
                 INSTANCE = instance
                 instance

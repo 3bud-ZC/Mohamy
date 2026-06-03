@@ -9,6 +9,7 @@ const { signAdminToken, signLicenseToken, requireAdmin, verifyToken } = require(
 const { generateLicenseKey } = require('./utils');
 
 const PORT = Number(process.env.PORT || 8080);
+const LIFETIME_MAX_DEVICES = 1;
 
 function parseCorsOrigins() {
   const raw = (process.env.CORS_ORIGINS || '').trim();
@@ -136,8 +137,6 @@ async function start() {
       password,
       status = 'active',
       notes = '',
-      max_devices = 1,
-      expires_at = null,
       license_status = 'active',
     } = req.body || {};
 
@@ -172,8 +171,8 @@ async function start() {
         lawyerId,
         licenseKey,
         normalizedLicenseStatus,
-        Number(max_devices) > 0 ? Number(max_devices) : 1,
-        expires_at
+        LIFETIME_MAX_DEVICES,
+        null
       );
       return res.json({ ok: true, lawyer_id: lawyerId, license_key: licenseKey });
     } catch (err) {
@@ -241,9 +240,8 @@ async function start() {
     if (!license) return res.status(404).json({ error: 'license_not_found' });
 
     const status = normalizeStatus(req.body?.status, ['active', 'blocked', 'inactive'], license.status);
-    const maxDevicesRaw = Number(req.body?.max_devices ?? license.max_devices);
-    const maxDevices = Number.isFinite(maxDevicesRaw) && maxDevicesRaw > 0 ? Math.floor(maxDevicesRaw) : license.max_devices;
-    const expiresAt = req.body?.expires_at === '' ? null : req.body?.expires_at ?? license.expires_at;
+    const maxDevices = LIFETIME_MAX_DEVICES;
+    const expiresAt = null;
 
     await db.run(
       `UPDATE licenses

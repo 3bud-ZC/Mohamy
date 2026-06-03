@@ -22,6 +22,86 @@
 
 ---
 
+## ⬆️ التحديث المباشر من GitHub
+
+التطبيق يدعم الآن فحص التحديثات من GitHub مباشرة من داخل شاشة الإعدادات.
+
+### آلية العمل
+
+1. التطبيق يقرأ ملف التحديث من:
+   `https://raw.githubusercontent.com/3bud-ZC/Mohamy/main/update/latest.json`
+2. يقارن `versionCode` الموجود في الملف مع `versionCode` الحالي داخل التطبيق.
+3. إذا كانت هناك نسخة أحدث، يعرض لك:
+   - رقم النسخة الجديدة
+   - ملاحظات التحديث
+   - زر تنزيل وتثبيت
+4. بعد تنزيل ملف الـ APK يفتح شاشة التثبيت الرسمية في أندرويد.
+
+### شروط التحديث
+
+* يجب رفع النسخة الجديدة على GitHub بنفس `applicationId`.
+* يجب توقيعها بنفس مفتاح التوقيع المستخدم في النسخة المثبتة على الجهاز.
+* يجب أن يكون `versionCode` الجديد أكبر من الحالي.
+
+### عند إصدار نسخة جديدة
+
+1. ارفع `app-release.apk` الجديد كـ GitHub Release asset.
+2. حدّث ملف [update/latest.json](update/latest.json) بالقيم الجديدة:
+   - `versionCode`
+   - `versionName`
+   - `apkUrl`
+   - `notes`
+3. ادفع التغييرات إلى GitHub.
+
+إذا أردت استخدام GitHub Releases API مباشرة بدل JSON ثابت، اجعل `versionCode` واضحاً داخل body أو استخدم tag رقمي بسيط مثل `4` أو `v4` حتى يقرأه التطبيق بدون لبس.
+
+إذا أردت ربط التحديثات مباشرة بواجهة GitHub Releases بدل ملف JSON، يمكننا تحويل المصدر في خطوة لاحقة بدون تغيير كبير في التطبيق.
+
+### أتمتة النشر عبر GitHub Actions
+
+تمت إضافة Workflow داخل `.github/workflows/publish-release.yml` يقوم بالآتي عند عمل `push` على tag مثل `v1.2.1`:
+
+* يبني `app-release.apk`.
+* ينشئ أو يحدّث GitHub Release.
+* يحدّث [update/latest.json](update/latest.json) تلقائياً على فرع `main`.
+
+#### Secrets المطلوبة في GitHub
+
+أضف هذه الأسرار في المستودع:
+
+* `ANDROID_KEYSTORE_B64`
+* `ANDROID_KEYSTORE_PASSWORD`
+* `ANDROID_KEY_ALIAS`
+* `ANDROID_KEY_PASSWORD`
+
+#### تحويل ملف keystore إلى Base64
+
+لو كنت تعمل من Windows PowerShell:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("signing\mohamy-release.jks")) | Set-Clipboard
+```
+
+ثم الصق الناتج داخل Secret `ANDROID_KEYSTORE_B64`.
+
+#### الترقيم الصحيح
+
+* زِد `versionCode` في [app/build.gradle.kts](app/build.gradle.kts) مع كل إصدار.
+* استخدم tag واضح عند النشر مثل `v1.2.1`.
+* ارفع ملف الـ APK كـ Release asset باسم `app-release.apk`.
+
+#### أمر واحد جاهز للنشر
+
+من جذر المشروع شغّل:
+
+```powershell
+.\scripts\publish-release.ps1 -VersionCode 4 -VersionName "1.3.0" -Tag "v1.3.0"
+```
+
+هذا الأمر سيحدّث نسخة التطبيق، يعمل commit، ثم يرفع `main` والـ tag إلى GitHub. بعده سيعمل الـ workflow تلقائياً.
+
+---
+
 ## ✨ الميزات الحالية المعتمدة (Current Supported Features)
 
 1. **إدارة العملاء (CRUD):** إضافة جديد، تعديل تفاصيل، أرشفة، وحذف بيانات العملاء مع سياق قضاياهم.

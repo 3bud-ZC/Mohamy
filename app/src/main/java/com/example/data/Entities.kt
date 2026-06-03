@@ -1,6 +1,7 @@
 package com.example.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "clients")
@@ -80,6 +81,7 @@ data class CaseFile(
     val caseTitle: String,
     val clientId: Int,
     val clientName: String = "",
+    val linkedSessionId: Int? = null,
     val fileName: String,
     val filePath: String,
     val docType: String, // عقد، توكيل، محضر، حكم، إلخ.
@@ -110,6 +112,48 @@ data class GeneratedDocument(
     val dateCreated: Long = System.currentTimeMillis(),
     val filledFieldsJson: String, // بيانات الحقول المعبأة
     val content: String // النص النهائي المستبدل فيه المتغيرات
+)
+
+@Entity(tableName = "fee_records")
+data class FeeRecord(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val clientId: Int,
+    val clientName: String,
+    val caseId: Int? = null,
+    val caseTitle: String? = null,
+    val title: String,
+    val totalAmount: Double = 0.0,
+    val paidAmount: Double = 0.0,
+    val currency: String = "ج.م",
+    val dueDate: String = "",
+    val status: String = "مستحقة",
+    val paymentMethod: String = "",
+    val notes: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "custom_case_categories",
+    indices = [Index(value = ["normalizedName"], unique = true)]
+)
+data class CustomCaseCategory(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val name: String,
+    val normalizedName: String,
+    val createdDate: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "client_interactions")
+data class ClientInteraction(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val clientId: Int,
+    val clientName: String,
+    val interactionType: String = "ملاحظة",
+    val title: String,
+    val details: String = "",
+    val relatedCaseId: Int? = null,
+    val relatedCaseTitle: String = "",
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "license_cache")

@@ -1,5 +1,6 @@
 ﻿package com.example.ui.screens
 import com.example.data.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Subject
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +26,7 @@ import com.example.ui.theme.LegalGoldLight
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalGrayLight
 import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.legalScreenBackground
 
 @Composable
 fun TasksListScreen(viewModel: AppViewModel, tasks: List<LegalTask>, cases: List<LegalCase>) {
@@ -37,6 +40,7 @@ fun TasksListScreen(viewModel: AppViewModel, tasks: List<LegalTask>, cases: List
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.navigateTo(Screen.TaskAddEdit()) },
@@ -50,9 +54,23 @@ fun TasksListScreen(viewModel: AppViewModel, tasks: List<LegalTask>, cases: List
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .legalScreenBackground()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("إدارة المهام", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
+                    Text("إجمالي المهام: ${tasks.size}", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { showingCompleted = false },
@@ -175,6 +193,7 @@ fun TaskAddEditScreen(taskId: Int?, presetCaseId: Int?, viewModel: AppViewModel,
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .legalScreenBackground()
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
@@ -254,7 +273,7 @@ fun TaskAddEditScreen(taskId: Int?, presetCaseId: Int?, viewModel: AppViewModel,
                     label = { Text("ارتباط بملف دعوى محددة (اختياري)") },
                     leadingIcon = { Icon(Icons.Default.Folder, null, tint = LegalNavyPrimary) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LegalGoldSecondary, focusedLabelColor = LegalNavyPrimary)
                 )
@@ -280,7 +299,7 @@ fun TaskAddEditScreen(taskId: Int?, presetCaseId: Int?, viewModel: AppViewModel,
             value = description,
             onValueChange = { description = it },
             label = { Text("شرح وتوصيف المهمة القانونية بالتفصيل") },
-            leadingIcon = { Icon(Icons.Default.Subject, null, tint = LegalNavyPrimary) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, null, tint = LegalNavyPrimary) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp),

@@ -3,7 +3,10 @@
 enum class ImportTarget {
     CLIENTS,
     CASES,
-    SESSIONS
+    SESSIONS,
+    TASKS,
+    FILES_METADATA,
+    GENERATED_DOCS
 }
 
 enum class DuplicateStrategy {

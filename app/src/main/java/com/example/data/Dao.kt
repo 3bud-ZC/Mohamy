@@ -121,6 +121,21 @@ interface FileDao {
 }
 
 @Dao
+interface ClientInteractionDao {
+    @Query("SELECT * FROM client_interactions ORDER BY createdAt DESC")
+    fun getAll(): Flow<List<ClientInteraction>>
+
+    @Query("SELECT * FROM client_interactions WHERE clientId = :clientId ORDER BY createdAt DESC")
+    fun getForClient(clientId: Int): Flow<List<ClientInteraction>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(interaction: ClientInteraction): Long
+
+    @Delete
+    suspend fun delete(interaction: ClientInteraction)
+}
+
+@Dao
 interface TemplateDao {
     @Query("SELECT * FROM templates ORDER BY category ASC, title ASC")
     fun getAllTemplates(): Flow<List<LegalTemplate>>
@@ -151,6 +166,42 @@ interface GeneratedDocDao {
 
     @Delete
     suspend fun deleteGeneratedDocument(doc: GeneratedDocument)
+}
+
+@Dao
+interface FeeDao {
+    @Query("SELECT * FROM fee_records ORDER BY createdAt DESC")
+    fun getAllFeeRecords(): Flow<List<FeeRecord>>
+
+    @Query("SELECT * FROM fee_records WHERE clientId = :clientId ORDER BY createdAt DESC")
+    fun getForClient(clientId: Int): Flow<List<FeeRecord>>
+
+    @Query("SELECT * FROM fee_records WHERE caseId = :caseId ORDER BY createdAt DESC")
+    fun getForCase(caseId: Int): Flow<List<FeeRecord>>
+
+    @Query("SELECT * FROM fee_records WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Int): FeeRecord?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(record: FeeRecord): Long
+
+    @Update
+    suspend fun update(record: FeeRecord)
+
+    @Delete
+    suspend fun delete(record: FeeRecord)
+}
+
+@Dao
+interface CustomCaseCategoryDao {
+    @Query("SELECT * FROM custom_case_categories ORDER BY name COLLATE NOCASE ASC")
+    fun getAll(): Flow<List<CustomCaseCategory>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(category: CustomCaseCategory): Long
+
+    @Query("DELETE FROM custom_case_categories WHERE id = :id")
+    suspend fun deleteById(id: Int)
 }
 
 @Dao

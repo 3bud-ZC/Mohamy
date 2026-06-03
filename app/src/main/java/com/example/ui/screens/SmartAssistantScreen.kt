@@ -1,9 +1,13 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,18 +18,36 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Gavel
-import androidx.compose.material.icons.filled.NoteAdd
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,6 +67,15 @@ import com.example.data.Screen
 import com.example.ui.openCaseFile
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.legalScreenBackground
+
+enum class AssistantRole { USER, ASSISTANT, SYSTEM }
+
+data class AssistantChatMessage(
+    val role: AssistantRole,
+    val text: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,16 +87,16 @@ fun SmartAssistantScreen(
 ) {
     val context = LocalContext.current
     var selectedCaseIndex by remember { mutableStateOf(0) }
-    var caseExpanded by remember { mutableStateOf(false) }
-    var resultText by remember { mutableStateOf("اختر قضية ثم شغّل أحد أوامر المساعد.") }
-    var matchedFileId by remember { mutableStateOf<Int?>(null) }
-    var searchInput by remember { mutableStateOf("") }
+    var assistantInput by remember { mutableStateOf("") }
+    var assistantFileQuery by remember { mutableStateOf("") }
     var suggestedTemplates by remember { mutableStateOf<List<LegalTemplate>>(emptyList()) }
+    val listState = rememberLazyListState()
 
     if (cases.isEmpty()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .legalScreenBackground()
                 .padding(20.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -77,241 +108,357 @@ fun SmartAssistantScreen(
             Button(
                 onClick = { viewModel.navigateTo(Screen.CaseAddEdit()) },
                 colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) {
-                Text("إضافة قضية")
-            }
+            ) { Text("إضافة قضية") }
         }
         return
     }
 
     val selectedCase = cases.getOrNull(selectedCaseIndex) ?: cases.first()
     val selectedCaseFiles = files.filter { it.caseId == selectedCase.id }
-    val matchedFile = selectedCaseFiles.find { it.id == matchedFileId }
+    val matchedFile = selectedCaseFiles.find { file ->
+        val query = assistantFileQuery.ifBlank { assistantInput }
+        query.isNotBlank() && file.fileName.contains(query, ignoreCase = true)
+    }
+
+    val chatMessages = remember(selectedCase.id) {
+        mutableStateListOf(
+            AssistantChatMessage(
+                role = AssistantRole.SYSTEM,
+                text = "أهلاً. أنا المساعد المحلي لهذه القضية. اكتب سؤالك مباشرة أو استخدم الأوامر السريعة."
+            ),
+            AssistantChatMessage(
+                role = AssistantRole.ASSISTANT,
+                text = "جاهز للعمل على: ${selectedCase.title}. يمكنك طلب ملخص، تجهيز جلسة، مسودة مذكرة، بحث داخل الملفات، أو عرض الأتعاب."
+            )
+        )
+    }
+
+    LaunchedEffect(chatMessages.size) {
+        if (chatMessages.isNotEmpty()) {
+            listState.animateScrollToItem(chatMessages.lastIndex)
+        }
+    }
+
+    LaunchedEffect(selectedCase.id) {
+        assistantInput = ""
+        assistantFileQuery = ""
+        suggestedTemplates = emptyList()
+    }
+
+    fun submitPrompt(prompt: String) {
+        val text = prompt.trim()
+        if (text.isBlank()) return
+        chatMessages.add(AssistantChatMessage(AssistantRole.USER, text))
+        viewModel.sendSmartAssistantChatMessage(selectedCase.id, text) { reply ->
+            suggestedTemplates =
+                if (text.contains("قالب") || text.contains("قوالب")) {
+                    buildSuggestedTemplates(templates, selectedCase.caseType, viewModel)
+                } else {
+                    emptyList()
+                }
+            chatMessages.add(AssistantChatMessage(AssistantRole.ASSISTANT, reply))
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .legalScreenBackground()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("المساعد الذكي", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = LegalNavyPrimary)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "المساعد الذكي يساعد في تنظيم البيانات والبحث داخل الملفات وتجهيز القوالب، ولا يعتبر رأيًا قانونيًا نهائيًا.",
-            fontSize = 12.sp,
-            color = Color.DarkGray
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text("يعمل محليًا على بياناتك دون إرسال ملفاتك لأي خادم.", fontSize = 12.sp, color = LegalNavyPrimary)
-        Spacer(modifier = Modifier.height(14.dp))
-
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.4f))
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
         ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("اختار قضية", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
-                ExposedDropdownMenuBox(
-                    expanded = caseExpanded,
-                    onExpandedChange = { caseExpanded = !caseExpanded }
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(LegalNavyPrimary.copy(alpha = 0.08f), RoundedCornerShape(18.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    OutlinedTextField(
-                        value = selectedCase.title,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = caseExpanded,
-                        onDismissRequest = { caseExpanded = false }
-                    ) {
-                        cases.forEachIndexed { idx, legalCase ->
-                            DropdownMenuItem(
-                                text = { Text(legalCase.title) },
-                                onClick = {
-                                    selectedCaseIndex = idx
-                                    matchedFileId = null
-                                    suggestedTemplates = emptyList()
-                                    resultText = "تم اختيار القضية: ${legalCase.title}"
-                                    caseExpanded = false
-                                }
-                            )
-                        }
-                    }
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(28.dp))
                 }
-                Text("النوع: ${selectedCase.caseType} | الملفات: ${selectedCaseFiles.size}", fontSize = 12.sp, color = Color.Gray)
+                Text("المساعد الذكي", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = LegalNavyPrimary)
+                Text(
+                    "محادثة عملية مبنية على بيانات القضية والملفات والجلسات، مع تحسين سحابي اختياري عند توفره.",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Text(
+                    when {
+                        viewModel.hasConfiguredCloudAssistant && viewModel.isCloudAssistantEnabled -> "محلي + تحسين سحابي اختياري"
+                        viewModel.hasConfiguredCloudAssistant -> "محلي فقط"
+                        else -> "محلي بالكامل"
+                    },
+                    fontSize = 11.sp,
+                    color = LegalNavyPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "القوالب: ${templates.size} | ملفات القضية: ${selectedCaseFiles.size}",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(
-                onClick = {
-                    suggestedTemplates = emptyList()
-                    viewModel.getSmartAssistantSummary(selectedCase.id) {
-                        matchedFileId = null
-                        resultText = it
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) { Text("لخّص القضية", fontSize = 11.sp) }
-            Button(
-                onClick = {
-                    suggestedTemplates = emptyList()
-                    viewModel.getMissingDocumentsSuggestion(selectedCase.id) {
-                        matchedFileId = null
-                        resultText = it
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) { Text("المستندات الناقصة", fontSize = 11.sp) }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(
-                onClick = {
-                    suggestedTemplates = emptyList()
-                    viewModel.getNextSessionAssistant(selectedCase.id) {
-                        matchedFileId = null
-                        resultText = it
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) { Text("الجلسة القادمة", fontSize = 11.sp) }
-            Button(
-                onClick = {
-                    suggestedTemplates = emptyList()
-                    viewModel.getOpenTasksAssistant(selectedCase.id) {
-                        matchedFileId = null
-                        resultText = it
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) { Text("المهام المفتوحة", fontSize = 11.sp) }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(
-                onClick = {
-                    val rules = CaseRulesEngine.getRules(selectedCase.caseType, viewModel.repository::normalizeArabic)
-                    val matched = templates.filter { template ->
-                        rules.suggestedTemplates.any {
-                            viewModel.repository.normalizeArabic(template.title).contains(viewModel.repository.normalizeArabic(it))
-                        } || viewModel.repository.normalizeArabic(template.caseType) == viewModel.repository.normalizeArabic(rules.key)
-                    }.distinctBy { it.id }
-                    suggestedTemplates = matched
-                    viewModel.getSuggestedTemplatesForCase(selectedCase.caseType) {
-                        matchedFileId = null
-                        resultText = it
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) { Text("القوالب المناسبة", fontSize = 11.sp) }
-            Button(
-                onClick = {
-                    suggestedTemplates = emptyList()
-                    viewModel.triggerSmartChecklist(selectedCase.id, selectedCase.caseType) {
-                        matchedFileId = null
-                        resultText = it
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-            ) { Text("Checklist", fontSize = 11.sp) }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedTextField(
-            value = searchInput,
-            onValueChange = { searchInput = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("بحث داخل ملفات القضية المختارة") },
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Button(
-            onClick = {
-                suggestedTemplates = emptyList()
-                viewModel.searchInsideCaseFiles(selectedCase.id, searchInput) { text, fileId ->
-                    matchedFileId = fileId
-                    resultText = text
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-        ) {
-            Text("بحث داخل ملفات القضية")
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("النتيجة", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color.LightGray)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.35f))
         ) {
-            Text(resultText, modifier = Modifier.padding(12.dp), fontSize = 13.sp)
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("اختار قضية", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    cases.forEachIndexed { idx, legalCase ->
+                        AssistChip(
+                            onClick = { selectedCaseIndex = idx },
+                            label = { Text(legalCase.title, maxLines = 1) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = if (selectedCase.id == legalCase.id) LegalNavyPrimary else MaterialTheme.colorScheme.surface,
+                                labelColor = if (selectedCase.id == legalCase.id) Color.White else LegalNavyPrimary
+                            )
+                        )
+                    }
+                }
+                Text(
+                    "النوع: ${selectedCase.caseType} | الجاهزية: ${viewModel.caseReadinessScore(selectedCase)}% - ${viewModel.caseReadinessLabel(selectedCase)}",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
         }
 
-        if (matchedFile != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = LegalGoldSecondary.copy(alpha = 0.12f))
+        val prompts = listOf(
+            "ملخص القضية",
+            "تجهيز الجلسة القادمة",
+            "المستندات الناقصة",
+            "مسودة مذكرة",
+            "اعرض الأتعاب",
+            "ابحث داخل الملفات"
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            prompts.forEach { prompt ->
+                AssistChip(
+                    onClick = { submitPrompt(prompt) },
+                    label = { Text(prompt, fontSize = 11.sp) },
+                    leadingIcon = { Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surface)
+                )
+            }
+        }
+
+        if (viewModel.isAssistantLoading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        Card(
+            modifier = Modifier.weight(1f, fill = true),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("نتيجة ملف:", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
-                    Text("${matchedFile.fileName} | ${matchedFile.docType}", fontSize = 12.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { openCaseFile(context, matchedFile) }, colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)) {
-                            Text("فتح الملف")
-                        }
-                        OutlinedButton(onClick = {
-                            viewModel.saveAssistantResultAsCaseNote(selectedCase.id, resultText)
-                            Toast.makeText(context, "تم حفظ النتيجة كملاحظة.", Toast.LENGTH_SHORT).show()
-                        }) {
-                            Icon(Icons.Default.NoteAdd, contentDescription = null)
-                            Spacer(modifier = Modifier.size(4.dp))
-                            Text("حفظ كملاحظة")
-                        }
-                    }
+                items(chatMessages) { message ->
+                    ChatBubble(message = message)
                 }
             }
         }
 
         if (suggestedTemplates.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("القوالب المناسبة", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
-            suggestedTemplates.forEach { template ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp)
-                        .clickable { viewModel.navigateTo(Screen.TemplateForm(template.id, selectedCase.id)) },
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(Icons.Default.Description, contentDescription = null, tint = LegalNavyPrimary)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(template.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
-                            Text("${template.category} | ${template.caseType}", fontSize = 11.sp, color = Color.Gray)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("قوالب مناسبة", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                    suggestedTemplates.take(4).forEach { template ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.navigateTo(Screen.TemplateForm(template.id, selectedCase.id)) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null, tint = LegalNavyPrimary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(template.title, fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                                Text("${template.category} | ${template.caseType}", fontSize = 11.sp, color = Color.Gray)
+                            }
+                            Icon(Icons.Default.Gavel, contentDescription = null, tint = LegalGoldSecondary)
                         }
-                        Icon(Icons.Default.Gavel, contentDescription = null, tint = LegalGoldSecondary)
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = assistantInput,
+                    onValueChange = { assistantInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("اكتب سؤالك للمساعد... مثلاً: جهز الجلسة القادمة") },
+                    minLines = 2,
+                    maxLines = 4,
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val text = assistantInput.trim()
+                            if (text.isBlank()) return@IconButton
+                            chatMessages.add(AssistantChatMessage(AssistantRole.USER, text))
+                            assistantInput = ""
+                            viewModel.sendSmartAssistantChatMessage(selectedCase.id, text) { reply ->
+                                suggestedTemplates = buildSuggestedTemplates(templates, selectedCase.caseType, viewModel)
+                                chatMessages.add(AssistantChatMessage(AssistantRole.ASSISTANT, reply))
+                            }
+                    }) {
+                            Icon(Icons.Default.Send, contentDescription = null)
+                        }
+                    }
+                )
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val lastAssistant = chatMessages.lastOrNull { it.role == AssistantRole.ASSISTANT }
+                            clipboard.setPrimaryClip(ClipData.newPlainText("نتيجة المساعد الذكي", lastAssistant?.text.orEmpty()))
+                            Toast.makeText(context, "تم نسخ آخر رد.", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("نسخ آخر رد") }
+
+                    Button(
+                        onClick = {
+                            val lastAssistant = chatMessages.lastOrNull { it.role == AssistantRole.ASSISTANT }
+                            if (lastAssistant != null) {
+                                viewModel.saveAssistantResultAsCaseNote(selectedCase.id, lastAssistant.text)
+                                Toast.makeText(context, "تم حفظ آخر رد داخل ملاحظات القضية.", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = LegalGoldSecondary)
+                    ) { Text("حفظ كملاحظة", color = LegalNavyPrimary) }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            submitPrompt("ابحث داخل الملفات ${assistantFileQuery.ifBlank { assistantInput }}")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("بحث داخل الملفات") }
+
+                    OutlinedButton(
+                        onClick = {
+                            val matched = templates.filter { template ->
+                                val rules = CaseRulesEngine.getRules(selectedCase.caseType, viewModel.repository::normalizeArabic)
+                                rules.suggestedTemplates.any {
+                                    viewModel.repository.normalizeArabic(template.title).contains(viewModel.repository.normalizeArabic(it))
+                                } || viewModel.repository.normalizeArabic(template.caseType) == viewModel.repository.normalizeArabic(rules.key)
+                            }.distinctBy { it.id }
+                            suggestedTemplates = matched
+                            submitPrompt("اعرض القوالب المناسبة")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("القوالب المناسبة") }
+                }
+            }
+        }
+
+        if (matchedFile != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = LegalGoldSecondary.copy(alpha = 0.12f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("ملف مطابق لمدخلاتك:", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                    Text("${matchedFile.fileName} | ${matchedFile.docType}", fontSize = 12.sp)
+                    Button(onClick = { openCaseFile(context, matchedFile) }, colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)) {
+                        Text("فتح الملف")
+                    }
+                }
+            }
+        }
     }
 }
+
+private fun buildSuggestedTemplates(
+    templates: List<LegalTemplate>,
+    caseType: String,
+    viewModel: AppViewModel
+): List<LegalTemplate> {
+    val rules = CaseRulesEngine.getRules(caseType, viewModel.repository::normalizeArabic)
+    return templates.filter { template ->
+        rules.suggestedTemplates.any {
+            viewModel.repository.normalizeArabic(template.title).contains(viewModel.repository.normalizeArabic(it))
+        } || viewModel.repository.normalizeArabic(template.caseType) == viewModel.repository.normalizeArabic(rules.key)
+    }.distinctBy { it.id }
+}
+
+@Composable
+private fun ChatBubble(message: AssistantChatMessage) {
+    val isUser = message.role == AssistantRole.USER
+    val isSystem = message.role == AssistantRole.SYSTEM
+    val bubbleColor = when {
+        isSystem -> MaterialTheme.colorScheme.surfaceVariant
+        isUser -> LegalNavyPrimary
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val textColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface
+    val alignment = if (isUser) Arrangement.End else Arrangement.Start
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = alignment) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = bubbleColor),
+            border = BorderStroke(1.dp, if (isUser) LegalNavyPrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = when (message.role) {
+                        AssistantRole.USER -> "أنت"
+                        AssistantRole.ASSISTANT -> "المساعد"
+                        AssistantRole.SYSTEM -> "نظام"
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isUser) Color.White.copy(alpha = 0.85f) else LegalNavyPrimary
+                )
+                Text(
+                    text = message.text,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = textColor
+                )
+            }
+        }
+    }
+}
+

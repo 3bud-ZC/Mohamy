@@ -5,6 +5,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.unit.sp
 import com.example.R
 
@@ -36,35 +37,40 @@ val Typography =
       TextStyle(
         fontFamily = TajawalFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 18.sp,
-        lineHeight = 26.sp,
+        fontSize = 19.sp,
+        lineHeight = 28.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     bodyLarge =
       TextStyle(
-        fontFamily = TajawalFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 17.sp,
+        lineHeight = 27.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     bodyMedium =
       TextStyle(
-        fontFamily = TajawalFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 22.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 24.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     labelLarge =
       TextStyle(
-        fontFamily = TajawalFamily,
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     labelSmall =
       TextStyle(
-        fontFamily = TajawalFamily,
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
   )

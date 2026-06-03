@@ -3,32 +3,9 @@ let adminUsername = '';
 let cachedLawyers = [];
 let filteredLawyers = [];
 let selectedPlanId = '';
+let activeStatusFilter = 'all';
 
 const planPresets = {
-  monthly_single: {
-    label: 'باقة شهرية فردية',
-    days: 30,
-    maxDevices: 1,
-    notes: 'باقة شهرية - جهاز واحد',
-  },
-  quarterly_single: {
-    label: 'باقة ربع سنوية',
-    days: 90,
-    maxDevices: 1,
-    notes: 'باقة 3 شهور - جهاز واحد',
-  },
-  yearly_single: {
-    label: 'باقة سنوية فردية',
-    days: 365,
-    maxDevices: 1,
-    notes: 'باقة سنوية - جهاز واحد',
-  },
-  yearly_office: {
-    label: 'باقة سنوية مكتبية',
-    days: 365,
-    maxDevices: 3,
-    notes: 'باقة سنوية مكتبية - 3 أجهزة',
-  },
   lifetime_single: {
     label: 'باقة مدى الحياة',
     days: null,
@@ -84,8 +61,8 @@ function applyPlanPreset(planId) {
 
   document.getElementById('status').value = 'active';
   document.getElementById('licenseStatus').value = 'active';
-  document.getElementById('maxDevices').value = String(preset.maxDevices);
-  document.getElementById('expiresAt').value = preset.days === null ? '' : futureDate(preset.days);
+  document.getElementById('maxDevices').value = '1';
+  document.getElementById('expiresAt').value = 'مدى الحياة';
 
   const notesField = document.getElementById('notes');
   if (!notesField.value.trim()) {
@@ -117,11 +94,11 @@ function statusBadge(status) {
 
 function licenseSummary(license) {
   if (!license) return '<span class="muted">لا يوجد</span>';
-  const expires = license.expires_at || 'غير محدد';
+  const expires = 'مدى الحياة';
   return [
     `<div><strong>${escapeHtml(license.license_key || '-')}</strong></div>`,
     `<div class="muted">status: ${escapeHtml(license.status || '-')}</div>`,
-    `<div class="muted">max_devices: ${escapeHtml(license.max_devices || '-')}</div>`,
+    `<div class="muted">max_devices: 1</div>`,
     `<div class="muted">expires_at: ${escapeHtml(expires)}</div>`,
   ].join('');
 }
@@ -174,8 +151,10 @@ function updateStats(list) {
 
 function renderLawyersTable(list) {
   const body = document.getElementById('lawyersBody');
+  const meta = document.getElementById('searchMeta');
   if (!list || list.length === 0) {
     body.innerHTML = '<tr><td colspan="8" class="muted">لا يوجد نتائج مطابقة.</td></tr>';
+    if (meta) meta.textContent = 'لا توجد نتائج مطابقة للفلاتر الحالية.';
     updateStats([]);
     return;
   }
@@ -203,20 +182,28 @@ function renderLawyersTable(list) {
     })
     .join('');
 
+  if (meta) {
+    const statusText = activeStatusFilter === 'all' ? 'كل الحالات' : `الحالة: ${activeStatusFilter}`;
+    meta.textContent = `يعرض الجدول ${list.length} نتيجة | ${statusText}`;
+  }
   updateStats(list);
+}
+
+function setStatusFilter(status) {
+  activeStatusFilter = status;
+  document.querySelectorAll('.status-filter-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.status === status);
+  });
+  applySearch();
 }
 
 function applySearch() {
   const query = document.getElementById('searchInput').value.trim().toLowerCase();
-  if (!query) {
-    filteredLawyers = [...cachedLawyers];
-    renderLawyersTable(filteredLawyers);
-    return;
-  }
-
   filteredLawyers = cachedLawyers.filter((lawyer) => {
+    const matchesStatus = activeStatusFilter === 'all' || lawyer.status === activeStatusFilter;
     const blob = `${lawyer.name || ''} ${lawyer.username || ''} ${lawyer.phone || ''} ${lawyer.notes || ''}`.toLowerCase();
-    return blob.includes(query);
+    const matchesQuery = !query || blob.includes(query);
+    return matchesStatus && matchesQuery;
   });
 
   renderLawyersTable(filteredLawyers);
@@ -297,8 +284,8 @@ function openLicenseModal(lawyerId) {
 
   document.getElementById('editLicenseId').value = String(lawyer.license.id);
   document.getElementById('editLicenseStatus').value = lawyer.license.status || 'active';
-  document.getElementById('editLicenseDevices').value = String(lawyer.license.max_devices || 1);
-  document.getElementById('editLicenseExpires').value = lawyer.license.expires_at || '';
+  document.getElementById('editLicenseDevices').value = '1';
+  document.getElementById('editLicenseExpires').value = 'مدى الحياة';
   document.getElementById('licenseModal').showModal();
 }
 
@@ -306,8 +293,8 @@ async function saveLicense() {
   const licenseId = Number(document.getElementById('editLicenseId').value || '0');
   const payload = {
     status: document.getElementById('editLicenseStatus').value,
-    max_devices: Number(document.getElementById('editLicenseDevices').value || '1'),
-    expires_at: document.getElementById('editLicenseExpires').value.trim(),
+    max_devices: 1,
+    expires_at: null,
   };
 
   try {
@@ -414,8 +401,8 @@ async function addLawyer() {
     username: document.getElementById('username').value.trim(),
     password: document.getElementById('password').value,
     status: document.getElementById('status').value,
-    max_devices: Number(document.getElementById('maxDevices').value || '1'),
-    expires_at: document.getElementById('expiresAt').value.trim() || null,
+    max_devices: 1,
+    expires_at: null,
     license_status: document.getElementById('licenseStatus').value,
     notes: document.getElementById('notes').value.trim(),
   };
@@ -441,6 +428,7 @@ async function addLawyer() {
     document.getElementById('status').value = 'active';
     document.getElementById('licenseStatus').value = 'active';
     document.getElementById('maxDevices').value = '1';
+    document.getElementById('expiresAt').value = 'مدى الحياة';
     setActivePreset('');
 
     await loadLawyers();
@@ -471,6 +459,10 @@ document.getElementById('clearSearchBtn').addEventListener('click', () => {
 document.querySelectorAll('[data-plan]').forEach((button) => {
   button.addEventListener('click', () => applyPlanPreset(button.dataset.plan));
 });
+document.querySelectorAll('.status-filter-btn').forEach((button) => {
+  button.addEventListener('click', () => setStatusFilter(button.dataset.status));
+});
+applyPlanPreset('lifetime_single');
 
 document.getElementById('saveLawyerBtn').addEventListener('click', saveLawyer);
 document.getElementById('cancelLawyerBtn').addEventListener('click', () => document.getElementById('lawyerModal').close());

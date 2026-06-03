@@ -162,6 +162,81 @@
     }
 
     .topbar-right { display: flex; gap: 10px; align-items: center; }
+    .brandline {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .hero {
+      padding: 18px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #0c3c78 0%, #153f78 42%, #21589d 100%);
+      color: #fff;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset-inline-start: -40px;
+      inset-block-end: -40px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+    }
+    .hero h2 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+    .hero p {
+      margin: 8px 0 0;
+      max-width: 760px;
+      line-height: 1.8;
+      color: rgba(255,255,255,0.88);
+      font-size: 0.92rem;
+    }
+    .hero-meta {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .hero-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 0.82rem;
+    }
+    .status-filter {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .status-filter button {
+      width: auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #f3f7fd;
+      color: #16325d;
+      border: 1px solid #d9e4f2;
+    }
+    .status-filter button.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .footer-note {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
 
     .stats { margin-bottom: 16px; }
     .stat-card { padding: 14px 16px; }
@@ -316,6 +391,7 @@
       <div class="card login-card">
         <h2 class="title">لوحة إدارة MohamyPhone</h2>
         <p class="sub">إدارة العملاء والتراخيص والأجهزة من مكان واحد.</p>
+        <p class="brandline">حقوق المهندس عبدالله ال علي | <a href="https://abud.fun" target="_blank" rel="noreferrer">abud.fun</a></p>
 
         <div class="grid g2" style="margin-top:14px;">
           <div>
@@ -338,11 +414,24 @@
 
     <div id="panel">
       <div class="card topbar">
-        <h1>إدارة العملاء والتراخيص</h1>
+        <div>
+          <h1>إدارة العملاء والتراخيص</h1>
+          <div class="brandline">لوحة تشغيل MohamyPhone | حقوق المهندس عبدالله ال علي | <a href="https://abud.fun" target="_blank" rel="noreferrer">abud.fun</a></div>
+        </div>
         <div class="topbar-right">
           <span id="adminWho" class="muted"></span>
           <button id="refreshBtn" class="btn-secondary">تحديث</button>
           <button id="logoutBtn" class="btn-soft">خروج</button>
+        </div>
+      </div>
+
+      <div class="card hero">
+        <h2>تحكم سريع في العملاء والتفعيل</h2>
+        <p>اللوحة مخصصة لإدارة الحسابات التجارية، إنشاء موكلين جدد، ضبط حالة الترخيص، فك الأجهزة، وتحديث بيانات المكاتب بدون المساس ببيانات القضايا داخل التطبيق نفسه.</p>
+        <div class="hero-meta">
+          <span>رابط المنصة: mohamy.abud.fun</span>
+          <span>الباقة الحالية: مدى الحياة - جهاز واحد</span>
+          <span>النشر التجاري: جاهز</span>
         </div>
       </div>
 
@@ -403,11 +492,11 @@
             </div>
             <div>
               <label for="maxDevices">أقصى أجهزة</label>
-              <input id="maxDevices" type="number" min="1" value="1" />
+              <input id="maxDevices" type="number" min="1" value="1" readonly disabled />
             </div>
             <div>
-              <label for="expiresAt">انتهاء الترخيص (اختياري)</label>
-              <input id="expiresAt" placeholder="YYYY-MM-DD" />
+              <label for="expiresAt">انتهاء الترخيص</label>
+              <input id="expiresAt" value="مدى الحياة" readonly disabled />
             </div>
           </div>
 
@@ -430,35 +519,26 @@
             <input id="searchInput" placeholder="ابحث بالاسم أو username أو الهاتف" />
             <button id="clearSearchBtn" class="btn-secondary" style="max-width:150px;">مسح البحث</button>
           </div>
+          <div class="status-filter">
+            <button type="button" class="status-filter-btn active" data-status="all">الكل</button>
+            <button type="button" class="status-filter-btn" data-status="active">نشط</button>
+            <button type="button" class="status-filter-btn" data-status="inactive">معلّق</button>
+            <button type="button" class="status-filter-btn" data-status="blocked">محظور</button>
+          </div>
+          <p id="searchMeta" class="muted" style="margin-top:10px;">يعرض الجدول كل العملاء الحاليين.</p>
           <p class="muted" style="margin-top:10px;">إدارة الحالات، تعديل الترخيص، إعادة ضبط الأجهزة وتغيير كلمة المرور متاحة من الجدول بالأسفل.</p>
           </div>
 
           <div class="card section">
-            <h2>باقات جاهزة للبيع</h2>
+            <h2>الباقة المعتمدة</h2>
             <div class="preset-grid">
-              <button type="button" class="preset-card" data-plan="monthly_single">
-                <strong>شهري فردي</strong>
-                <small>30 يوم - جهاز واحد - مناسب للتجربة المدفوعة</small>
-              </button>
-              <button type="button" class="preset-card" data-plan="quarterly_single">
-                <strong>ربع سنوي</strong>
-                <small>90 يوم - جهاز واحد - عميل مستقر</small>
-              </button>
-              <button type="button" class="preset-card" data-plan="yearly_single">
-                <strong>سنوي فردي</strong>
-                <small>365 يوم - جهاز واحد - أفضل باقة فردية</small>
-              </button>
-              <button type="button" class="preset-card" data-plan="yearly_office">
-                <strong>سنوي مكتبي</strong>
-                <small>365 يوم - 3 أجهزة - مناسب للمكاتب</small>
-              </button>
               <button type="button" class="preset-card" data-plan="lifetime_single">
                 <strong>مدى الحياة</strong>
                 <small>بدون تاريخ انتهاء - جهاز واحد</small>
               </button>
             </div>
             <div class="hint-box" style="margin-top:12px;">
-              اختيار أي باقة يملأ تاريخ الانتهاء وعدد الأجهزة والملاحظات تلقائيًا. يمكنك بعدها تعديل الاسم أو كلمة المرور أو أي بيانات أخرى قبل إنشاء الحساب.
+              نظام الترخيص يعمل الآن بباقة واحدة فقط: مدى الحياة لجهاز واحد. لا يتم استخدام أي تاريخ انتهاء.
             </div>
           </div>
         </div>
@@ -485,6 +565,7 @@
         </div>
       </div>
     </div>
+    <div class="footer-note">حقوق المهندس عبدالله ال علي | منصة MohamyPhone | <a href="https://abud.fun" target="_blank" rel="noreferrer">abud.fun</a></div>
   </div>
 
   <dialog id="lawyerModal">
@@ -531,12 +612,12 @@
         </div>
         <div>
           <label for="editLicenseDevices">أقصى أجهزة</label>
-          <input id="editLicenseDevices" type="number" min="1" />
+          <input id="editLicenseDevices" type="number" min="1" value="1" readonly disabled />
         </div>
       </div>
       <div style="margin-top:10px;">
         <label for="editLicenseExpires">انتهاء الترخيص</label>
-        <input id="editLicenseExpires" placeholder="YYYY-MM-DD أو اتركه فارغ" />
+        <input id="editLicenseExpires" value="مدى الحياة" readonly disabled />
       </div>
       <div class="modal-actions">
         <button type="button" id="saveLicenseBtn">حفظ</button>

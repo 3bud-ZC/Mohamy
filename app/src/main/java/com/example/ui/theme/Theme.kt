@@ -13,28 +13,48 @@ import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme =
   darkColorScheme(
-    primary = LegalGoldSecondary,
-    secondary = LegalGoldLight,
-    tertiary = LegalGoldSecondary,
-    background = Color(0xFF0D1424),
-    surface = Color(0xFF141F35),
-    onPrimary = Color.White,
-    onSecondary = Color.Black,
+    primary = Color(0xFFE2C27A),
+    onPrimary = Color(0xFF0B1220),
+    primaryContainer = Color(0xFF3A2D12),
+    onPrimaryContainer = Color(0xFFFFEFD0),
+    secondary = Color(0xFFAFC4FF),
+    onSecondary = Color(0xFF0D1728),
+    secondaryContainer = Color(0xFF1E2B47),
+    onSecondaryContainer = Color(0xFFDCE6FF),
+    tertiary = Color(0xFF8EE3CF),
+    onTertiary = Color(0xFF07211A),
+    tertiaryContainer = Color(0xFF123B31),
+    onTertiaryContainer = Color(0xFFC9F8EE),
+    background = Color(0xFF08111F),
     onBackground = Color(0xFFE5E7EB),
-    onSurface = Color(0xFFF3F4F6)
+    surface = Color(0xFF101A2C),
+    onSurface = Color(0xFFF3F4F6),
+    surfaceVariant = Color(0xFF1A263D),
+    onSurfaceVariant = Color(0xFFCBD5E1),
+    outline = Color(0xFF53627C),
+    outlineVariant = Color(0xFF2A3955)
   )
 
 private val LightColorScheme =
   lightColorScheme(
     primary = LegalNavyPrimary,
-    secondary = LegalGoldSecondary,
-    tertiary = LegalGoldLight,
-    background = Color(0xFFF9FAFB),
-    surface = Color.White,
     onPrimary = Color.White,
-    onSecondary = Color.Black,
+    primaryContainer = Color(0xFFDDE9FF),
+    onPrimaryContainer = Color(0xFF0D1B36),
+    secondary = LegalGoldSecondary,
+    onSecondary = Color(0xFF1B1406),
+    secondaryContainer = Color(0xFFF4E2BF),
+    onSecondaryContainer = Color(0xFF402E05),
+    tertiary = LegalGoldLight,
+    onTertiary = Color(0xFF281E04),
+    background = Color(0xFFF7F9FD),
     onBackground = Color(0xFF111827),
-    onSurface = Color(0xFF1F2937)
+    surface = Color.White,
+    onSurface = Color(0xFF1F2937),
+    surfaceVariant = Color(0xFFE8EEF8),
+    onSurfaceVariant = Color(0xFF475569),
+    outline = Color(0xFF94A3B8),
+    outlineVariant = Color(0xFFCBD5E1)
   )
 
 
