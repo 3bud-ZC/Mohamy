@@ -35,8 +35,8 @@ android {
     applicationId = "com.aistudio.mohamyphone.lylawar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 5
-    versionName = "1.3.1"
+    versionCode = 6
+    versionName = "1.4.0"
     buildConfigField("String", "BUILD_TIMESTAMP", "\"$buildTimestamp\"")
     buildConfigField("String", "LICENSE_SERVER_URL", "\"$licenseServerUrl\"")
     buildConfigField("String", "ASSISTANT_API_URL", "\"$assistantApiUrl\"")
@@ -102,7 +102,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.navigation.compose)
-  implementation("com.google.mlkit:text-recognition:16.0.1")
+  implementation("com.google.mlkit:text-recognition-arabic:16.0.1")
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   // implementation(libs.coil.compose)

@@ -3,7 +3,12 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.speech.RecognizerIntent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +34,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -91,6 +97,18 @@ fun SmartAssistantScreen(
     var assistantFileQuery by remember { mutableStateOf("") }
     var suggestedTemplates by remember { mutableStateOf<List<LegalTemplate>>(emptyList()) }
     val listState = rememberLazyListState()
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data
+            val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) {
+                assistantInput = matches[0]
+            }
+        }
+    }
 
     if (cases.isEmpty()) {
         Column(
@@ -374,17 +392,33 @@ fun SmartAssistantScreen(
                     minLines = 2,
                     maxLines = 4,
                     trailingIcon = {
-                        IconButton(onClick = {
-                            val text = assistantInput.trim()
-                            if (text.isBlank()) return@IconButton
-                            chatMessages.add(AssistantChatMessage(AssistantRole.USER, text))
-                            assistantInput = ""
-                            viewModel.sendSmartAssistantChatMessage(selectedCase.id, text) { reply ->
-                                suggestedTemplates = buildSuggestedTemplates(templates, selectedCase.caseType, viewModel)
-                                chatMessages.add(AssistantChatMessage(AssistantRole.ASSISTANT, reply))
+                        Row {
+                            IconButton(onClick = {
+                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ar-EG")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "تحدث الآن...")
+                                }
+                                try {
+                                    speechRecognizerLauncher.launch(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "التعرف على الصوت غير مدعوم على جهازك.", Toast.LENGTH_SHORT).show()
+                                }
+                            }) {
+                                Icon(Icons.Default.Mic, contentDescription = "تحدث", tint = LegalNavyPrimary)
                             }
-                    }) {
-                            Icon(Icons.Default.Send, contentDescription = null)
+                            IconButton(onClick = {
+                                val text = assistantInput.trim()
+                                if (text.isBlank()) return@IconButton
+                                chatMessages.add(AssistantChatMessage(AssistantRole.USER, text))
+                                assistantInput = ""
+                                viewModel.sendSmartAssistantChatMessage(selectedCase.id, text) { reply ->
+                                    suggestedTemplates = buildSuggestedTemplates(templates, selectedCase.caseType, viewModel)
+                                    chatMessages.add(AssistantChatMessage(AssistantRole.ASSISTANT, reply))
+                                }
+                            }) {
+                                Icon(Icons.Default.Send, contentDescription = "إرسال")
+                            }
                         }
                     }
                 )

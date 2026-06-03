@@ -10,7 +10,7 @@ import android.util.Log
 import com.example.BuildConfig
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.mlkit.vision.text.arabic.ArabicTextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -631,7 +631,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
             try {
                 if (!file.exists() || !LocalBusinessRules.isImageExtension(file.extension)) return@withContext ""
                 val image = InputImage.fromFilePath(context, Uri.fromFile(file))
-                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                val recognizer = TextRecognition.getClient(ArabicTextRecognizerOptions.Builder().build())
                 suspendCoroutine<String> { continuation ->
                     recognizer.process(image)
                         .addOnSuccessListener { result ->

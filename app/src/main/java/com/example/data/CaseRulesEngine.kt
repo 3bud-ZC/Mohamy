@@ -5,7 +5,8 @@ data class CaseTypeRules(
     val requiredDocuments: List<String>,
     val checklist: List<String>,
     val suggestedTemplates: List<String>,
-    val importantQuestions: List<String>
+    val importantQuestions: List<String>,
+    val automatedTasks: List<Pair<String, Int>> = emptyList()
 )
 
 object CaseRulesEngine {
@@ -40,6 +41,10 @@ object CaseRulesEngine {
                 "ما آخر تاريخ سداد موثق؟",
                 "هل تم إعلان إنذار رسمي؟",
                 "هل توجد مراسلات أو إقرارات سابقة؟"
+            ),
+            automatedTasks = listOf(
+                "تجهيز ورفع صحيفة الدعوى / استخراج رقم الدعوى" to 3,
+                "إرسال إنذار رسمي بالإخلاء أو السداد" to 7
             )
         ),
         "أسرة" to CaseTypeRules(
@@ -62,6 +67,10 @@ object CaseRulesEngine {
                 "هل سبق رفع دعاوى بين نفس الأطراف؟",
                 "ما الوضع المالي الحالي لكل طرف؟",
                 "هل توجد تسوية عرفية سابقة؟"
+            ),
+            automatedTasks = listOf(
+                "طلب مفردات مرتب أو تحريات دخل للخصم" to 5,
+                "محاولة إجراء تسوية أو صلح عائلي" to 10
             )
         ),
         "جنائي" to CaseTypeRules(
@@ -84,6 +93,10 @@ object CaseRulesEngine {
                 "هل يوجد تعارض جوهري في الأقوال؟",
                 "هل تم الضبط والتفتيش وفق الإجراءات؟",
                 "هل توجد أدلة نفي مادية؟"
+            ),
+            automatedTasks = listOf(
+                "استخراج صورة رسمية من المحضر" to 2,
+                "مقابلة الموكل لسماع الأقوال بدقة" to 4
             )
         ),
         "مدني" to CaseTypeRules(
@@ -100,6 +113,9 @@ object CaseRulesEngine {
                 "ما العلاقة القانونية بين الخصوم؟",
                 "هل الالتزام حال أم معلق على شرط؟",
                 "ما قيمة المطالبة بدقة؟"
+            ),
+            automatedTasks = listOf(
+                "إرسال إنذار رسمي على يد محضر" to 5
             )
         ),
         "تجاري" to CaseTypeRules(

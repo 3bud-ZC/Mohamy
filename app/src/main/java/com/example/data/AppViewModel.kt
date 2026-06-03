@@ -479,7 +479,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 globalErrorMsg = "يجب ربط القضية بموكل صالح."
                 return@launch
             }
-            repository.caseDao.insertCase(legalCase)
+            val isNewCase = legalCase.id == 0
+            val insertedId = repository.caseDao.insertCase(legalCase).toInt()
+            
+            // Generate automated tasks for new cases based on rules engine
+            if (isNewCase) {
+                val rules = CaseRulesEngine.getRules(legalCase.caseType, repository::normalizeArabic)
+                rules.automatedTasks.forEach { (taskTitle, daysOffset) ->
+                    val dueDateMs = System.currentTimeMillis() + daysOffset * 24L * 60 * 60 * 1000
+                    val dueDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(java.util.Date(dueDateMs))
+                    repository.taskDao.insertTask(
+                        LegalTask(
+                            caseId = insertedId,
+                            title = taskTitle,
+                            description = "مهمة تلقائية مولدة بناءً على نوع القضية",
+                            status = "مفتوحة",
+                            dueDate = dueDateStr
+                        )
+                    )
+                }
+            }
             onDone()
         }
     }
@@ -1487,57 +1506,88 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendSmartAssistantChatMessage(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
         val normalizedMessage = repository.normalizeArabic(userMessage)
-        when {
-            normalizedMessage.contains("ملخص") || normalizedMessage.contains("لخص") -> {
-                getSmartAssistantSummary(caseId, onResult)
-                return
-            }
-            normalizedMessage.contains("خطة") || normalizedMessage.contains("خطه") -> {
-                getCaseActionPlan(caseId, onResult)
-                return
-            }
-            normalizedMessage.contains("مستند") && (normalizedMessage.contains("ناقص") || normalizedMessage.contains("نواقص")) -> {
-                getMissingDocumentsSuggestion(caseId, onResult)
-                return
-            }
-            normalizedMessage.contains("جلسة") && (normalizedMessage.contains("قادمة") || normalizedMessage.contains("الجاية") || normalizedMessage.contains("القادمة") || normalizedMessage.contains("قريبة")) -> {
-                getNextSessionAssistant(caseId, onResult)
-                return
-            }
-            normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة") -> {
-                getOpenTasksAssistant(caseId, onResult)
-                return
-            }
-            normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") -> {
+        
+        // --- 1. Intent Scoring System ---
+        val intents = mutableMapOf<String, Int>()
+        
+        // Summary Intent
+        if (normalizedMessage.contains("ملخص") || normalizedMessage.contains("لخص")) intents["summary"] = 10
+        if (normalizedMessage.contains("موجز") || normalizedMessage.contains("نبذة")) intents["summary"] = (intents["summary"] ?: 0) + 5
+        
+        // Plan/Strategy Intent
+        if (normalizedMessage.contains("خطة") || normalizedMessage.contains("استراتيجية") || normalizedMessage.contains("خطه")) intents["plan"] = 10
+        
+        // Missing Docs Intent
+        if (normalizedMessage.contains("مستند") && (normalizedMessage.contains("ناقص") || normalizedMessage.contains("نواقص"))) intents["missing_docs"] = 10
+        if (normalizedMessage.contains("النواقص") || normalizedMessage.contains("الناقصة")) intents["missing_docs"] = (intents["missing_docs"] ?: 0) + 8
+        
+        // Next Session Intent
+        if (normalizedMessage.contains("جلسة") && (normalizedMessage.contains("قادمة") || normalizedMessage.contains("القادمة") || normalizedMessage.contains("الجاية"))) intents["next_session"] = 10
+        if (normalizedMessage.contains("متى الجلسة")) intents["next_session"] = 10
+        
+        // Open Tasks Intent
+        if (normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة")) intents["tasks"] = 10
+        
+        // Templates Intent
+        if (normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") || normalizedMessage.contains("نموذج")) intents["templates"] = 10
+        
+        // Prep Intent
+        if (normalizedMessage.contains("تجهيز") || normalizedMessage.contains("استعداد") || normalizedMessage.contains("احضر ايه")) intents["prep"] = 10
+        
+        // Draft Intent
+        if (normalizedMessage.contains("مذكرة") || normalizedMessage.contains("صياغة") || normalizedMessage.contains("مسودة") || normalizedMessage.contains("اكتب")) intents["draft"] = 10
+        
+        // Opponent Intent
+        if (normalizedMessage.contains("خصم") || normalizedMessage.contains("ضد من")) intents["opponent"] = 10
+        
+        // Fees Intent
+        if (normalizedMessage.contains("اتعاب") || normalizedMessage.contains("الأتعاب") || normalizedMessage.contains("فلوس")) intents["fees"] = 10
+
+        // Document Q&A Intent (Smart Extract)
+        if ((normalizedMessage.contains("مستند") || normalizedMessage.contains("ملف")) && 
+            (normalizedMessage.contains("ماذا") || normalizedMessage.contains("هل") || normalizedMessage.contains("كم") || normalizedMessage.contains("سؤال"))) {
+             intents["doc_qa"] = 15 // High priority if asking a question about a document
+        }
+
+        // Search Intent
+        if (normalizedMessage.contains("بحث") || normalizedMessage.contains("ابحث")) intents["search"] = 10
+
+        val topIntent = intents.maxByOrNull { it.value }?.key
+
+        // --- 2. Execute Top Intent ---
+        when (topIntent) {
+            "summary" -> getSmartAssistantSummary(caseId, onResult)
+            "plan" -> getCaseActionPlan(caseId, onResult)
+            "missing_docs" -> answerCaseQuestion(caseId, "missing_docs", onResult)
+            "next_session" -> getNextSessionAssistant(caseId, onResult)
+            "tasks" -> getOpenTasksAssistant(caseId, onResult)
+            "templates" -> {
                 val caseType = (allCases.value + archivedCases.value).firstOrNull { it.id == caseId }?.caseType.orEmpty()
                 getSuggestedTemplatesForCase(caseType, onResult)
-                return
             }
-            normalizedMessage.contains("تجهيز") || normalizedMessage.contains("استعداد") -> {
-                getSessionPrepAssistant(caseId, onResult)
-                return
+            "prep" -> getSessionPrepAssistant(caseId, onResult)
+            "draft" -> draftCaseMemo(caseId, onResult)
+            "opponent" -> answerCaseQuestion(caseId, "opponent", onResult)
+            "fees" -> getFeesAssistant(caseId, onResult)
+            "doc_qa" -> {
+                // For document Q&A, fallback to cloud if enabled, otherwise do local search
+                viewModelScope.launch {
+                    val caseTitle = (allCases.value + archivedCases.value).firstOrNull { it.id == caseId }?.title ?: "القضية"
+                    val files = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
+                    val filesText = files.joinToString("\n\n") { "مستند ${it.fileName}:\n${it.extractedText.take(1500)}" }
+                    val contextText = "تفاصيل القضية: $caseTitle\nالملفات:\n$filesText"
+                    
+                    val onlineReply = repository.requestOnlineAssistantAnswer(userMessage, contextText)
+                    if (onlineReply != null && onlineReply.isSuccess) {
+                        onResult("استناداً إلى مستندات القضية:\n${onlineReply.getOrNull()}")
+                    } else {
+                        // Fallback to local search logic
+                        val query = userMessage.replace(Regex("(ماذا|هل|كم|عن|في|مستند|ملف|سؤال)"), "").trim()
+                        searchInsideCaseFiles(caseId, query.ifBlank { userMessage }) { text, _ -> onResult(text) }
+                    }
+                }
             }
-            normalizedMessage.contains("مذكرة") || normalizedMessage.contains("صياغة") || normalizedMessage.contains("مسودة") -> {
-                draftCaseMemo(caseId, onResult)
-                return
-            }
-            normalizedMessage.contains("جاهزية") || normalizedMessage.contains("جاهز") -> {
-                answerCaseQuestion(caseId, "readiness", onResult)
-                return
-            }
-            normalizedMessage.contains("آخر جلسة") || normalizedMessage.contains("اخر جلسه") -> {
-                answerCaseQuestion(caseId, "last_session", onResult)
-                return
-            }
-            normalizedMessage.contains("خصم") -> {
-                answerCaseQuestion(caseId, "opponent", onResult)
-                return
-            }
-            normalizedMessage.contains("نواقص") || normalizedMessage.contains("الناقصة") || normalizedMessage.contains("الملفات الناقصة") -> {
-                answerCaseQuestion(caseId, "missing_docs", onResult)
-                return
-            }
-            normalizedMessage.contains("بحث") || normalizedMessage.contains("ابحث") -> {
+            "search" -> {
                 val query = userMessage
                     .replace("ابحث داخل الملفات", "", ignoreCase = true)
                     .replace("بحث داخل الملفات", "", ignoreCase = true)
@@ -1545,9 +1595,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     .replace("بحث", "", ignoreCase = true)
                     .trim()
                 searchInsideCaseFiles(caseId, query.ifBlank { userMessage }) { text, _ -> onResult(text) }
-                return
             }
-            normalizedMessage.contains("اتعاب") || normalizedMessage.contains("الأتعاب") || normalizedMessage.contains("اعمال") -> {
+            else -> {
+                getDefaultAssistantResponse(caseId, userMessage, onResult)
+            }
+        }
+    }
+
+    private fun getFeesAssistant(caseId: Int, onResult: (String) -> Unit) {
                 viewModelScope.launch {
                     isAssistantLoading = true
                     val legalCase = repository.caseDao.getCaseById(caseId)
@@ -1582,8 +1637,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 return
             }
-        }
-
+    private fun getDefaultAssistantResponse(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
             isAssistantLoading = true
             val legalCase = repository.caseDao.getCaseById(caseId)
