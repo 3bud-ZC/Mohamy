@@ -39,6 +39,9 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Restore Android signing key
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
