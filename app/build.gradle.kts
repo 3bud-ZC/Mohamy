@@ -35,8 +35,8 @@ android {
     applicationId = "com.aistudio.mohamyphone.lylawar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 10
-    versionName = "1.7.0"
+    versionCode = 11
+    versionName = "1.7.1"
     buildConfigField("String", "BUILD_TIMESTAMP", "\"$buildTimestamp\"")
     buildConfigField("String", "LICENSE_SERVER_URL", "\"$licenseServerUrl\"")
     buildConfigField("String", "ASSISTANT_API_URL", "\"$assistantApiUrl\"")

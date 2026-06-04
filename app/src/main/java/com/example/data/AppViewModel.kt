@@ -1378,7 +1378,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val dateEng = session.date.toEnglishDigits().trim()
         val timeEng = session.time.toEnglishDigits().trim()
         val full = if (timeEng.isBlank()) "$dateEng 23:59" else "$dateEng $timeEng"
-        val formats = listOf("yyyy-MM-dd HH:mm", "yyyy-MM-dd H:mm")
+        val formats = listOf(
+            "yyyy-MM-dd HH:mm", "yyyy-MM-dd H:mm",
+            "dd-MM-yyyy HH:mm", "dd-MM-yyyy H:mm",
+            "dd/MM/yyyy HH:mm", "dd/MM/yyyy H:mm",
+            "yyyy/MM/dd HH:mm", "yyyy/MM/dd H:mm"
+        )
         formats.forEach { pattern ->
             try {
                 return SimpleDateFormat(pattern, Locale.ENGLISH).parse(full)?.time
@@ -1517,66 +1522,68 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun sendSmartAssistantChatMessage(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
         val normalizedMessage = repository.normalizeArabic(userMessage)
         
+        fun containsAny(vararg words: String): Boolean {
+            return words.any { normalizedMessage.contains(repository.normalizeArabic(it)) }
+        }
+        
         // --- 1. Intent Scoring System ---
         val intents = mutableMapOf<String, Int>()
         
         // Summary Intent
-        if (normalizedMessage.contains("ملخص") || normalizedMessage.contains("لخص") || normalizedMessage.contains("خلاصه")) intents["summary"] = 10
-        if (normalizedMessage.contains("موجز") || normalizedMessage.contains("نبذة") || normalizedMessage.contains("اختصار")) intents["summary"] = (intents["summary"] ?: 0) + 5
+        if (containsAny("ملخص", "لخص", "خلاصه")) intents["summary"] = 10
+        if (containsAny("موجز", "نبذة", "اختصار")) intents["summary"] = (intents["summary"] ?: 0) + 5
         
         // Plan/Strategy Intent
-        if (normalizedMessage.contains("خطة") || normalizedMessage.contains("استراتيجية") || normalizedMessage.contains("خطه") || normalizedMessage.contains("نعمل ايه")) intents["plan"] = 10
+        if (containsAny("خطة", "استراتيجية", "نعمل ايه", "نعمل إيه")) intents["plan"] = 10
         
         // Missing Docs Intent
-        if ((normalizedMessage.contains("مستند") || normalizedMessage.contains("ورق") || normalizedMessage.contains("ملف")) && 
-            (normalizedMessage.contains("ناقص") || normalizedMessage.contains("نواقص") || normalizedMessage.contains("مطلوب"))) intents["missing_docs"] = 10
-        if (normalizedMessage.contains("النواقص") || normalizedMessage.contains("الناقصة")) intents["missing_docs"] = (intents["missing_docs"] ?: 0) + 8
+        if (containsAny("مستند", "ورق", "ملف") && containsAny("ناقص", "نواقص", "مطلوب")) intents["missing_docs"] = 10
+        if (containsAny("النواقص", "الناقصة")) intents["missing_docs"] = (intents["missing_docs"] ?: 0) + 8
         
         // Next Session Intent
-        if (normalizedMessage.contains("جلسة") && (normalizedMessage.contains("قادمة") || normalizedMessage.contains("القادمة") || normalizedMessage.contains("الجاية") || normalizedMessage.contains("اللي جايه"))) intents["next_session"] = 10
-        if (normalizedMessage.contains("متى الجلسة") || normalizedMessage.contains("امتي الجلسه") || normalizedMessage.contains("تاريخ الجلسة")) intents["next_session"] = 10
+        if (containsAny("جلسة") && containsAny("قادمة", "القادمة", "الجاية", "اللي جايه")) intents["next_session"] = 10
+        if (containsAny("متى الجلسة", "امتي الجلسه", "تاريخ الجلسة", "الجلسه الجايه امتي")) intents["next_session"] = 10
         
         // Open Tasks Intent
-        if (normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة") || normalizedMessage.contains("مطلوب مننا") || normalizedMessage.contains("ورايا ايه")) intents["tasks"] = 10
+        if (containsAny("مهام", "مهمة", "مطلوب مننا", "ورايا ايه")) intents["tasks"] = 10
         
         // Add Session Intent
-        if (normalizedMessage.contains("اضف جلسة") || normalizedMessage.contains("اضافة جلسة") || normalizedMessage.contains("جلسة جديدة") || normalizedMessage.contains("سجل جلسة")) intents["add_session"] = 15
+        if (containsAny("اضف جلسة", "اضافة جلسة", "جلسة جديدة", "سجل جلسة")) intents["add_session"] = 15
         
         // Add Task Intent
-        if (normalizedMessage.contains("اضف مهمة") || normalizedMessage.contains("مهمة جديدة") || normalizedMessage.contains("اضافة مهمة") || normalizedMessage.contains("سجل مهمة")) intents["add_task"] = 15
+        if (containsAny("اضف مهمة", "مهمة جديدة", "اضافة مهمة", "سجل مهمة")) intents["add_task"] = 15
         
         // Upload Doc Intent
-        if (normalizedMessage.contains("رفع مستند") || normalizedMessage.contains("اضافة مستند") || normalizedMessage.contains("ارفع ملف") || normalizedMessage.contains("اضف ملف")) intents["upload_doc"] = 15
+        if (containsAny("رفع مستند", "اضافة مستند", "ارفع ملف", "اضف ملف")) intents["upload_doc"] = 15
         
         // Client Update Intent
-        if (normalizedMessage.contains("تحديث للعميل") || normalizedMessage.contains("رسالة للعميل") || normalizedMessage.contains("اخبر العميل") || normalizedMessage.contains("لخص للعميل")) intents["client_update"] = 15
+        if (containsAny("تحديث للعميل", "رسالة للعميل", "اخبر العميل", "لخص للعميل")) intents["client_update"] = 15
         
         // Case Status Intent
-        if (normalizedMessage.contains("وضع القضية") || normalizedMessage.contains("حالة القضية") || normalizedMessage.contains("ايه الوضع") || normalizedMessage.contains("لخص الوضع")) intents["case_status"] = 15
+        if (containsAny("وضع القضية", "حالة القضية", "ايه الوضع", "لخص الوضع")) intents["case_status"] = 15
         
         // Templates Intent
-        if (normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") || normalizedMessage.contains("نموذج") || normalizedMessage.contains("صيغة")) intents["templates"] = 10
+        if (containsAny("قالب", "قوالب", "نموذج", "صيغة")) intents["templates"] = 10
         
         // Prep Intent
-        if (normalizedMessage.contains("تجهيز") || normalizedMessage.contains("استعداد") || normalizedMessage.contains("احضر ايه") || normalizedMessage.contains("استعد للجلسه")) intents["prep"] = 10
+        if (containsAny("تجهيز", "استعداد", "احضر ايه", "استعد للجلسه")) intents["prep"] = 10
         
         // Draft Intent
-        if (normalizedMessage.contains("مذكرة") || normalizedMessage.contains("صياغة") || normalizedMessage.contains("مسودة") || normalizedMessage.contains("اكتب") || normalizedMessage.contains("مرافعة")) intents["draft"] = 10
+        if (containsAny("مذكرة", "صياغة", "مسودة", "اكتب", "مرافعة")) intents["draft"] = 10
         
         // Opponent Intent
-        if (normalizedMessage.contains("خصم") || normalizedMessage.contains("ضد من") || normalizedMessage.contains("مين الخصم") || normalizedMessage.contains("المنازع")) intents["opponent"] = 10
+        if (containsAny("خصم", "ضد من", "مين الخصم", "المنازع")) intents["opponent"] = 10
         
         // Fees Intent
-        if (normalizedMessage.contains("اتعاب") || normalizedMessage.contains("الأتعاب") || normalizedMessage.contains("فلوس") || normalizedMessage.contains("مستحقات") || normalizedMessage.contains("دفع")) intents["fees"] = 10
+        if (containsAny("اتعاب", "الأتعاب", "فلوس", "مستحقات", "دفع")) intents["fees"] = 10
 
         // Document Q&A Intent (Smart Extract)
-        if ((normalizedMessage.contains("مستند") || normalizedMessage.contains("ملف") || normalizedMessage.contains("الورق")) && 
-            (normalizedMessage.contains("ماذا") || normalizedMessage.contains("هل") || normalizedMessage.contains("كم") || normalizedMessage.contains("سؤال") || normalizedMessage.contains("ايه المكتوب"))) {
-             intents["doc_qa"] = 15 // High priority if asking a question about a document
+        if (containsAny("مستند", "ملف", "الورق") && containsAny("ماذا", "هل", "كم", "سؤال", "ايه المكتوب")) {
+             intents["doc_qa"] = 15 
         }
 
         // Search Intent
-        if (normalizedMessage.contains("بحث") || normalizedMessage.contains("ابحث") || normalizedMessage.contains("دورلي") || normalizedMessage.contains("دور علي")) intents["search"] = 10
+        if (containsAny("بحث", "ابحث", "دورلي", "دور علي")) intents["search"] = 10
 
         val topIntent = intents.maxByOrNull { it.value }?.key
 
@@ -1751,41 +1758,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 onResult("تعذر تحميل القضية.")
                 return@launch
             }
-            val sessionsList = repository.sessionDao.getSessionsForCase(caseId).firstOrNull().orEmpty()
-            val tasksList = repository.taskDao.getTasksForCase(caseId).firstOrNull().orEmpty()
-            val filesList = repository.fileDao.getFilesForCase(caseId).firstOrNull().orEmpty()
-            val openTasks = tasksList.filter(::isTaskOpen)
-            val upcomingSession = sessionsList
-                .filter {
-                    (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= System.currentTimeMillis() &&
-                        it.status != "منتهية" &&
-                        it.status != "ملغاة"
-                }
-                .minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
+            
             val text = buildString {
-                appendLine("المساعد الذكي معك داخل القضية: ${legalCase.title}")
-                appendLine("القضية: ${legalCase.caseNumber}/${legalCase.caseYear}")
-                appendLine("الموكل: ${legalCase.clientName}")
-                appendLine("الخصم: ${legalCase.opponentName.ifBlank { "غير محدد" }}")
-                appendLine("المحكمة: ${legalCase.courtName.ifBlank { "غير محددة" }}")
-                appendLine("الدائرة: ${legalCase.courtCircle.ifBlank { "غير محددة" }}")
-                appendLine("النوع: ${legalCase.caseType}")
-                appendLine("الجاهزية: ${caseReadinessScore(legalCase)}% - ${caseReadinessLabel(legalCase)}")
-                appendLine("الملفات: ${filesList.size} | المهام المفتوحة: ${openTasks.size}")
-                appendLine("الجلسة القادمة: ${upcomingSession?.date ?: legalCase.nextSessionDate.ifBlank { "لا توجد" }}")
-                appendLine()
-                appendLine("يمكنك أن تسألني مباشرة مثل:")
+                appendLine("عذراً، لم أفهم طلبك بدقة 🧐.")
+                appendLine("يرجى استخدام عبارات مباشرة أو الضغط على أحد الأزرار السريعة بالأعلى.")
+                appendLine("أمثلة لما يمكنني فهمه:")
                 appendLine("• لخص القضية")
-                appendLine("• جهز الجلسة القادمة")
-                appendLine("• ما المستندات الناقصة؟")
-                appendLine("• ما آخر جلسة؟")
-                appendLine("• اكتب مسودة مذكرة")
-                appendLine("• اعرض الأتعاب")
+                appendLine("• ايه الوضع")
+                appendLine("• متى الجلسة القادمة")
+                appendLine("• النواقص")
+                appendLine("• اضف جلسة / اضافة مهمة")
             }
-            val finalText = composeHybridAssistantOutput(
-                prompt = userMessage,
-                offlineText = text
-            )
+            
+            val onlineResult = repository.requestOnlineAssistantAnswer(prompt = userMessage, offlineSummary = "المستخدم سأل: $userMessage\nهذه القضية: ${legalCase.title}")
+            val cloudText = onlineResult?.getOrNull()?.trim().orEmpty()
+            
+            val finalText = if (cloudText.isNotBlank()) cloudText else text
+            
             isAssistantLoading = false
             onResult(finalText)
         }
