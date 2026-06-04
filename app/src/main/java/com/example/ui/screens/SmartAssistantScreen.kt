@@ -314,6 +314,7 @@ fun SmartAssistantScreen(
 
         // --- 3. Quick Suggestions Row ---
         val prompts = listOf(
+            "إضافة جلسة",
             "لخص القضية",
             "ابحث داخل الملفات",
             "عرض الأتعاب",

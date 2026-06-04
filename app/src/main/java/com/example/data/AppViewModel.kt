@@ -1358,16 +1358,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- Offline Smart Legal Assistant Calculations ---
+    private fun String.toEnglishDigits(): String {
+        var res = this
+        val arabicDigits = arrayOf("٠","١","٢","٣","٤","٥","٦","٧","٨","٩")
+        for (i in 0..9) { res = res.replace(arabicDigits[i], i.toString()) }
+        return res
+    }
+
     private fun parseDate(dateText: String): Long? {
         return try {
-            if (dateText.isBlank()) null else SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(dateText)?.time
+            val d = dateText.toEnglishDigits().trim()
+            if (d.isBlank()) null else SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(d)?.time
         } catch (_: Exception) {
             null
         }
     }
 
     private fun parseSessionDateTime(session: CaseSession): Long? {
-        val full = if (session.time.isBlank()) "${session.date} 23:59" else "${session.date} ${session.time}"
+        val dateEng = session.date.toEnglishDigits().trim()
+        val timeEng = session.time.toEnglishDigits().trim()
+        val full = if (timeEng.isBlank()) "$dateEng 23:59" else "$dateEng $timeEng"
         val formats = listOf("yyyy-MM-dd HH:mm", "yyyy-MM-dd H:mm")
         formats.forEach { pattern ->
             try {
@@ -1529,6 +1539,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         // Open Tasks Intent
         if (normalizedMessage.contains("مهام") || normalizedMessage.contains("مهمة") || normalizedMessage.contains("مطلوب مننا") || normalizedMessage.contains("ورايا ايه")) intents["tasks"] = 10
         
+        // Add Session Intent
+        if (normalizedMessage.contains("اضف جلسة") || normalizedMessage.contains("اضافة جلسة") || normalizedMessage.contains("جلسة جديدة") || normalizedMessage.contains("سجل جلسة")) intents["add_session"] = 15
+        
         // Templates Intent
         if (normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") || normalizedMessage.contains("نموذج") || normalizedMessage.contains("صيغة")) intents["templates"] = 10
         
@@ -1561,6 +1574,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             "plan" -> getCaseActionPlan(caseId, onResult)
             "missing_docs" -> answerCaseQuestion(caseId, "missing_docs", onResult)
             "next_session" -> getNextSessionAssistant(caseId, onResult)
+            "add_session" -> {
+                onResult("حاضر، جاري فتح شاشة إضافة جلسة جديدة لهذه القضية...")
+                navigateTo(Screen.SessionAddEdit(presetCaseId = caseId))
+            }
             "tasks" -> getOpenTasksAssistant(caseId, onResult)
             "templates" -> {
                 val caseType = (allCases.value + archivedCases.value).firstOrNull { it.id == caseId }?.caseType.orEmpty()

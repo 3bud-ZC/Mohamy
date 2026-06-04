@@ -1,5 +1,8 @@
-﻿package com.example.ui.screens
+package com.example.ui.screens
 import com.example.data.*
+import java.util.Calendar
+import java.util.Locale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -185,6 +188,28 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
     var statusExpanded by remember { mutableStateOf(false) }
     val statusOptions = listOf("قادمة", "منتهية", "مؤجلة", "ملغاة")
 
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = android.app.DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            date = String.format(Locale.ENGLISH, "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    val timePickerDialog = android.app.TimePickerDialog(
+        context,
+        { _, hourOfDay, minute ->
+            time = String.format(Locale.ENGLISH, "%02d:%02d", hourOfDay, minute)
+        },
+        calendar.get(Calendar.HOUR_OF_DAY),
+        calendar.get(Calendar.MINUTE),
+        false
+    )
+
     LaunchedEffect(presetCaseId, cases) {
         if (presetCaseId != null) {
             val idx = cases.indexOfFirst { it.id == presetCaseId }
@@ -302,16 +327,29 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = date,
-                onValueChange = { date = it },
-                label = { Text("تاريخ الجلسة (YYYY-MM-DD)") },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("2026-06-15") }
+                onValueChange = { },
+                readOnly = true,
+                label = { Text("تاريخ الجلسة") },
+                modifier = Modifier.weight(1f).clickable { datePickerDialog.show() },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = LegalNavyPrimary,
+                    disabledBorderColor = LegalNavyPrimary.copy(alpha = 0.5f),
+                    disabledLabelColor = LegalNavyPrimary
+                )
             )
             OutlinedTextField(
                 value = time,
-                onValueChange = { time = it },
+                onValueChange = { },
+                readOnly = true,
                 label = { Text("وقت الجلسة") },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).clickable { timePickerDialog.show() },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = LegalNavyPrimary,
+                    disabledBorderColor = LegalNavyPrimary.copy(alpha = 0.5f),
+                    disabledLabelColor = LegalNavyPrimary
+                )
             )
         }
         Spacer(modifier = Modifier.height(12.dp))

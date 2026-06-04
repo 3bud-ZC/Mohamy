@@ -322,42 +322,57 @@ fun MainLayout(viewModel: AppViewModel) {
             },
             bottomBar = {
                 if (activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        tonalElevation = 8.dp,
-                        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
                     ) {
-                        val items = listOf(
-                            Triple("المكتبة", Icons.Default.FolderCopy, activeScreen is Screen.FilesLibrary || activeScreen is Screen.Search),
-                            Triple("القضايا", Icons.Default.Gavel, activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit),
-                            Triple("المساعد", Icons.Default.AutoAwesome, activeScreen is Screen.SmartAssistant),
-                            Triple("الموكلون", Icons.Default.People, activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit),
-                            Triple("الجلسات", Icons.Default.CalendarToday, activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit)
-                        )
-                        
-                        items.forEach { (label, icon, selected) ->
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = {
-                                    when (label) {
-                                        "المكتبة" -> viewModel.navigateTo(Screen.FilesLibrary)
-                                        "القضايا" -> viewModel.navigateTo(Screen.CasesList)
-                                        "المساعد" -> viewModel.navigateTo(Screen.SmartAssistant)
-                                        "الموكلون" -> viewModel.navigateTo(Screen.ClientsList)
-                                        "الجلسات" -> viewModel.navigateTo(Screen.SessionsList)
-                                    }
-                                },
-                                icon = { Icon(imageVector = icon, contentDescription = label) },
-                                label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = LegalNavyPrimary,
-                                    selectedTextColor = LegalNavyPrimary,
-                                    indicatorColor = LegalGoldSecondary.copy(alpha = 0.2f),
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        Surface(
+                            shape = RoundedCornerShape(32.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 12.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            NavigationBar(
+                                containerColor = Color.Transparent,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                tonalElevation = 0.dp,
+                                modifier = Modifier.height(72.dp)
+                            ) {
+                                val items = listOf(
+                                    Triple("المكتبة", Icons.Default.FolderCopy, activeScreen is Screen.FilesLibrary || activeScreen is Screen.Search),
+                                    Triple("القضايا", Icons.Default.Gavel, activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit),
+                                    Triple("المساعد", Icons.Default.AutoAwesome, activeScreen is Screen.SmartAssistant),
+                                    Triple("الموكلون", Icons.Default.People, activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit),
+                                    Triple("الجلسات", Icons.Default.CalendarToday, activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit)
                                 )
-                            )
+                                
+                                items.forEach { (label, icon, selected) ->
+                                    NavigationBarItem(
+                                        selected = selected,
+                                        onClick = {
+                                            when (label) {
+                                                "المكتبة" -> viewModel.navigateTo(Screen.FilesLibrary)
+                                                "القضايا" -> viewModel.navigateTo(Screen.CasesList)
+                                                "المساعد" -> viewModel.navigateTo(Screen.SmartAssistant)
+                                                "الموكلون" -> viewModel.navigateTo(Screen.ClientsList)
+                                                "الجلسات" -> viewModel.navigateTo(Screen.SessionsList)
+                                            }
+                                        },
+                                        icon = { Icon(imageVector = icon, contentDescription = label) },
+                                        label = { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = LegalGoldSecondary,
+                                            selectedTextColor = LegalNavyPrimary,
+                                            indicatorColor = LegalNavyPrimary.copy(alpha = 0.1f),
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        alwaysShowLabel = false
+                                    )
+                                }
+                            }
                         }
                     }
                 }
