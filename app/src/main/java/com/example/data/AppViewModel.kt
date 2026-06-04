@@ -1542,6 +1542,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         // Add Session Intent
         if (normalizedMessage.contains("اضف جلسة") || normalizedMessage.contains("اضافة جلسة") || normalizedMessage.contains("جلسة جديدة") || normalizedMessage.contains("سجل جلسة")) intents["add_session"] = 15
         
+        // Add Task Intent
+        if (normalizedMessage.contains("اضف مهمة") || normalizedMessage.contains("مهمة جديدة") || normalizedMessage.contains("اضافة مهمة") || normalizedMessage.contains("سجل مهمة")) intents["add_task"] = 15
+        
+        // Upload Doc Intent
+        if (normalizedMessage.contains("رفع مستند") || normalizedMessage.contains("اضافة مستند") || normalizedMessage.contains("ارفع ملف") || normalizedMessage.contains("اضف ملف")) intents["upload_doc"] = 15
+        
+        // Client Update Intent
+        if (normalizedMessage.contains("تحديث للعميل") || normalizedMessage.contains("رسالة للعميل") || normalizedMessage.contains("اخبر العميل") || normalizedMessage.contains("لخص للعميل")) intents["client_update"] = 15
+        
+        // Case Status Intent
+        if (normalizedMessage.contains("وضع القضية") || normalizedMessage.contains("حالة القضية") || normalizedMessage.contains("ايه الوضع") || normalizedMessage.contains("لخص الوضع")) intents["case_status"] = 15
+        
         // Templates Intent
         if (normalizedMessage.contains("قالب") || normalizedMessage.contains("قوالب") || normalizedMessage.contains("نموذج") || normalizedMessage.contains("صيغة")) intents["templates"] = 10
         
@@ -1578,6 +1590,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 onResult("حاضر، جاري فتح شاشة إضافة جلسة جديدة لهذه القضية...")
                 navigateTo(Screen.SessionAddEdit(presetCaseId = caseId))
             }
+            "add_task" -> {
+                onResult("حاضر، جاري فتح شاشة إضافة مهمة جديدة لهذه القضية...")
+                navigateTo(Screen.TaskAddEdit(presetCaseId = caseId))
+            }
+            "upload_doc" -> {
+                onResult("حاضر، سأقوم بفتح تفاصيل القضية حيث يمكنك الضغط على 'إرفاق مستند' لرفع الملفات بسهولة.")
+                navigateTo(Screen.CaseDetails(caseId))
+            }
+            "client_update" -> getClientUpdateAssistant(caseId, userMessage, onResult)
+            "case_status" -> getCaseStatusAssistant(caseId, userMessage, onResult)
             "tasks" -> getOpenTasksAssistant(caseId, onResult)
             "templates" -> {
                 val caseType = (allCases.value + archivedCases.value).firstOrNull { it.id == caseId }?.caseType.orEmpty()
@@ -1655,6 +1677,71 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 return
             }
+
+    private fun getClientUpdateAssistant(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            isAssistantLoading = true
+            val legalCase = repository.caseDao.getCaseById(caseId)
+            val client = legalCase?.clientId?.let { repository.clientDao.getClientById(it) }
+            val nextSession = repository.sessionDao.getSessionsForCase(caseId).firstOrNull()?.filter {
+                (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= System.currentTimeMillis()
+            }?.minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
+            
+            val offlineText = buildString {
+                appendLine("رسالة مقترحة للموكل (${client?.name ?: "العميل"}):")
+                appendLine("---")
+                appendLine("السيد/ة المحترم/ة ${client?.name ?: ""}،")
+                appendLine("نحيطكم علماً بأن متابعة قضيتكم (${legalCase?.title ?: ""}) مستمرة بشكل ممتاز.")
+                if (nextSession != null) {
+                    appendLine("ونود إعلامكم بأن الجلسة القادمة محددة بتاريخ ${nextSession.date} الساعة ${nextSession.time}.")
+                    appendLine("لأي استفسارات، نحن في خدمتكم.")
+                } else {
+                    appendLine("نحن نعمل على إنهاء كافة الإجراءات وسنوافيكم بأي تحديثات قريباً.")
+                }
+                appendLine("مع تحيات مكتب المحاماة.")
+                appendLine("---")
+                appendLine("💡 (يمكنك نسخ هذه الرسالة وإرسالها للعميل عبر الواتساب)")
+            }
+            val finalText = composeHybridAssistantOutput(prompt = userMessage, offlineText = offlineText)
+            isAssistantLoading = false
+            onResult(finalText)
+        }
+    }
+
+    private fun getCaseStatusAssistant(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            isAssistantLoading = true
+            val legalCase = repository.caseDao.getCaseById(caseId)
+            if (legalCase == null) {
+                isAssistantLoading = false
+                onResult("تعذر تحميل القضية.")
+                return@launch
+            }
+            val nextSession = repository.sessionDao.getSessionsForCase(caseId).firstOrNull()?.filter {
+                (parseSessionDateTime(it) ?: Long.MIN_VALUE) >= System.currentTimeMillis()
+            }?.minByOrNull { parseSessionDateTime(it) ?: Long.MAX_VALUE }
+            
+            val tasks = repository.taskDao.getTasksForCase(caseId).firstOrNull() ?: emptyList()
+            val pendingTasks = tasks.count { isTaskOpen(it) }
+            
+            val fees = repository.feeDao.getForCase(caseId).firstOrNull() ?: emptyList()
+            val totalOutstanding = fees.sumOf { (it.totalAmount - it.paidAmount).coerceAtLeast(0.0) }
+            
+            val offlineText = buildString {
+                appendLine("📊 **موجز حالة القضية: ${legalCase.title}**")
+                appendLine("- **الحالة:** ${legalCase.status}")
+                appendLine("- **تاريخ الجلسة القادمة:** ${nextSession?.date ?: "غير محدد"}")
+                appendLine("- **المهام المتبقية:** $pendingTasks مهمة")
+                appendLine("- **إجمالي المستحقات المتبقية:** ${String.format(Locale.ENGLISH, "%.2f", totalOutstanding)} ج.م")
+                appendLine("")
+                appendLine("هذا الموجز يعطيك لمحة سريعة وشاملة لإدارة القضية.")
+            }
+            val finalText = composeHybridAssistantOutput(prompt = userMessage, offlineText = offlineText)
+            isAssistantLoading = false
+            onResult(finalText)
+        }
+    }
+
     private fun getDefaultAssistantResponse(caseId: Int, userMessage: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
             isAssistantLoading = true
