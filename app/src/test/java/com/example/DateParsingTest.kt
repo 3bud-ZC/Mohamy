@@ -26,6 +26,7 @@ class DateParsingTest {
             try {
                 val format = SimpleDateFormat(pattern, Locale.ENGLISH).apply {
                     timeZone = TimeZone.getTimeZone("UTC")
+                    isLenient = false
                 }
                 val parsed = format.parse(normalized)
                 if (parsed != null) return parsed.time

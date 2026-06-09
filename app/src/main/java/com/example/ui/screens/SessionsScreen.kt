@@ -2,6 +2,7 @@ package com.example.ui.screens
 import com.example.data.*
 import java.util.Calendar
 import java.util.Locale
+import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -106,7 +107,7 @@ fun SessionsListScreen(viewModel: AppViewModel, sessions: List<CaseSession>, cas
                 colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.PictureAsPdf, null)
+                Icon(Icons.Default.Description, null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("تصدير تقرير الجلسات (PDF)", fontWeight = FontWeight.Bold)
             }

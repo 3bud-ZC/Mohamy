@@ -108,7 +108,7 @@ class NotificationWorker(
     }
 
     private suspend fun checkFees(repository: Repository) {
-        val fees = repository.feeDao.getAllFees().firstOrNull().orEmpty()
+        val fees = repository.feeDao.getAllFeeRecords().firstOrNull().orEmpty()
         var overdueAmount = 0.0
         var overdueCount = 0
 

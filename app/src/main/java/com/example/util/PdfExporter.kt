@@ -127,7 +127,7 @@ object PdfExporter {
             val details = """
                 رقم القضية: ${legalCase.caseNumber}
                 اسم الموكل: $clientName
-                المحكمة: ${legalCase.court}
+                المحكمة: ${legalCase.courtName}
                 النوع: ${legalCase.caseType}
                 الحالة: ${legalCase.status}
                 ملاحظات: ${legalCase.notes}
@@ -139,7 +139,7 @@ object PdfExporter {
                 y += drawText(canvas, "لا توجد جلسات.", bodyPaint, width, margin, y) + 10f
             } else {
                 sessions.forEach { s ->
-                    val sTxt = "• ${s.date} ${s.time} - المحكمة: ${s.court} - القرار: ${s.decision}"
+                    val sTxt = "• ${s.date} ${s.time} - المحكمة: ${s.court} - القرار: ${s.result}"
                     y += drawText(canvas, sTxt, bodyPaint, width - 20, margin + 20f, y) + 5f
                 }
             }
@@ -161,7 +161,7 @@ object PdfExporter {
         context: Context,
         client: Client,
         cases: List<LegalCase>,
-        fees: List<CaseFee>
+        fees: List<FeeRecord>
     ): Uri? {
         return generateStandardPdf(context, "Financials_${client.name}", "كشف حساب الموكل") { canvas, startY, width ->
             var y = startY
@@ -183,8 +183,8 @@ object PdfExporter {
                         totalPaid += fee.paidAmount
                         val fTxt = "• إجمالي الأتعاب: ${fee.totalAmount} ج.م | المدفوع: ${fee.paidAmount} ج.م | المتبقي: ${fee.totalAmount - fee.paidAmount} ج.م"
                         y += drawText(canvas, fTxt, bodyPaint, width - 20, margin + 20f, y) + 5f
-                        if (fee.paymentNotes.isNotBlank()) {
-                            y += drawText(canvas, "  ملاحظات الدفع: ${fee.paymentNotes}", bodyPaint, width - 20, margin + 20f, y) + 5f
+                        if (fee.notes.isNotBlank()) {
+                            y += drawText(canvas, "  ملاحظات الدفع: ${fee.notes}", bodyPaint, width - 20, margin + 20f, y) + 5f
                         }
                     }
                     y += 10f

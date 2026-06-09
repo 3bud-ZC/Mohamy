@@ -1114,6 +1114,10 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         return normalized
     }
 
+    fun saveLicenseServerUrl(url: String) {
+        prefs.edit().putString("license_server_url", url).apply()
+    }
+
     private fun resolveLicenseServerBaseUrl(): String {
         return normalizeLicenseServerUrl(prefs.getString("license_server_url", null))
     }

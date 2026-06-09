@@ -67,6 +67,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -413,7 +414,7 @@ fun ClientDetailsScreen(
             colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.PictureAsPdf, null)
+            Icon(Icons.Default.Description, null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("تصدير كشف حساب (PDF)", fontWeight = FontWeight.Bold)
         }
