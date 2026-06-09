@@ -14,10 +14,12 @@ import com.example.R
 object AppNotificationManager {
     private const val CHANNEL_UPDATES = "mohamy_updates"
     private const val CHANNEL_ACTIVITY = "mohamy_activity"
+    private const val CHANNEL_REMINDERS = "mohamy_reminders"
 
     private const val UPDATE_NOTIFICATION_ID = 1001
     private const val DOCUMENT_NOTIFICATION_ID = 1002
     private const val BACKUP_NOTIFICATION_ID = 1003
+    private const val REMINDER_NOTIFICATION_ID = 1004
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -36,6 +38,13 @@ object AppNotificationManager {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "تنبيهات حفظ المستندات والنسخ الاحتياطية"
+            },
+            NotificationChannel(
+                CHANNEL_REMINDERS,
+                "تذكيرات المكتب",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "تذكيرات بمواعيد الجلسات والأتعاب والمهام المتأخرة"
             }
         )
         channels.forEach(manager::createNotificationChannel)
@@ -104,6 +113,16 @@ object AppNotificationManager {
             context = context,
             channelId = CHANNEL_ACTIVITY,
             notificationId = notificationId,
+            title = title,
+            message = message
+        )
+    }
+
+    fun notifyReminder(context: Context, title: String, message: String, idOffset: Int = 0) {
+        postNotification(
+            context = context,
+            channelId = CHANNEL_REMINDERS,
+            notificationId = REMINDER_NOTIFICATION_ID + idOffset,
             title = title,
             message = message
         )

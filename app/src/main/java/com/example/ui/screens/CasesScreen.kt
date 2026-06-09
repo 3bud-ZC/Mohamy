@@ -469,29 +469,56 @@ fun CaseDetailsScreen(
                     Text(if (legalCase.isArchived) "تنشيط" else "أرشفة", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
-            Button(
-                onClick = {
-                    viewModel.exportCaseBundle(legalCase) { bundle ->
-                        val uri = androidx.core.content.FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.fileprovider",
-                            bundle
-                        )
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/zip"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = {
+                        viewModel.exportCaseBundle(legalCase) { bundle ->
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                bundle
+                            )
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/zip"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "تصدير ملف القضية الكامل"))
                         }
-                        context.startActivity(Intent.createChooser(intent, "تصدير ملف القضية الكامل"))
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.FolderZip, null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("تصدير ملف القضية كاملاً", fontWeight = FontWeight.Bold)
+                    },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.FolderZip, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تصدير ZIP", fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        val uri = com.example.util.PdfExporter.exportCaseSummary(
+                            context, legalCase, legalCase.clientName, caseSessions, caseTasks
+                        )
+                        if (uri != null) {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "مشاركة ملخص القضية"))
+                        } else {
+                            Toast.makeText(context, "فشل تصدير الـ PDF", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LegalGoldSecondary, contentColor = LegalNavyPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تصدير PDF", fontWeight = FontWeight.Bold)
+                }
             }
         }
 

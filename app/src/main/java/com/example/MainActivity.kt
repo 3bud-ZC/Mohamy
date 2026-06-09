@@ -17,6 +17,14 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     AppNotificationManager.ensureChannels(this)
+    val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.example.worker.NotificationWorker>(
+        1, java.util.concurrent.TimeUnit.DAYS
+    ).build()
+    androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        "MohamyDailyReminders",
+        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+        workRequest
+    )
     enableEdgeToEdge()
     setContent {
       val appViewModel: AppViewModel = viewModel()

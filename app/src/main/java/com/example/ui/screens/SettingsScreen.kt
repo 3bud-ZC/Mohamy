@@ -563,6 +563,27 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = LegalGrayLight)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("تذكير بالجلسات والمهام (يومياً)", fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "يقوم التطبيق بفحص القضايا وإصدار تنبيهات بالجلسات القريبة والأتعاب والمهام المتأخرة.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        lineHeight = 16.sp
+                    )
+                }
+                Switch(
+                    checked = viewModel.isRemindersEnabled,
+                    onCheckedChange = { viewModel.updateRemindersEnabled(it) }
+                )
+            }
         }
 
         Card(

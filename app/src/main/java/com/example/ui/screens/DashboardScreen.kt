@@ -1,4 +1,4 @@
-﻿package com.example.ui.screens
+package com.example.ui.screens
 import com.example.data.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -63,6 +63,8 @@ fun DashboardScreen(
     val readinessCases = remember(cases, sessions, tasks, files) {
         cases.sortedByDescending { viewModel.caseReadinessScore(it) }.take(3)
     }
+    val feeRecords by viewModel.allFeeRecords.collectAsState(initial = emptyList())
+    val totalUnpaidFees = feeRecords.sumOf { it.totalAmount - it.paidAmount }
 
     Column(
         modifier = Modifier
@@ -172,6 +174,15 @@ fun DashboardScreen(
                         title = "مهام معلقة",
                         count = pendingTasksCount.toString(),
                         icon = Icons.AutoMirrored.Filled.Assignment,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard(
+                        title = "أتعاب متأخرة/متبقية",
+                        count = "$totalUnpaidFees ج.م",
+                        icon = Icons.Default.AttachMoney,
                         modifier = Modifier.weight(1f)
                     )
                 }

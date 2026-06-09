@@ -250,10 +250,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             globalErrorMsg = "يرجى إدخال رابط سيرفر صحيح."
             return
         }
-        prefs.edit().putString("license_server_url", normalized).apply()
+        repository.saveLicenseServerUrl(normalized)
         licenseServerUrlInput = normalized
-        globalSuccessMsg = "تم حفظ رابط سيرفر التراخيص."
+        globalSuccessMsg = "تم حفظ رابط السيرفر. قم بالتفعيل للتحقق من الاتصال."
     }
+
+    var isRemindersEnabled by mutableStateOf(prefs.getBoolean("reminders_enabled", true))
+        private set
+
+    fun updateRemindersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("reminders_enabled", enabled).apply()
+        isRemindersEnabled = enabled
+    }
+
 
     fun updateDarkThemeEnabled(enabled: Boolean) {
         isDarkThemeEnabled = enabled
@@ -1577,6 +1586,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         // Fees Intent
         if (containsAny("اتعاب", "الأتعاب", "فلوس", "مستحقات", "دفع")) intents["fees"] = 10
 
+        // Sessions Week Intent
+        if (containsAny("جلسات الاسبوع", "هذا الاسبوع", "جلسات اسبوع")) intents["sessions_week"] = 12
+        
+        // Overdue Fees Intent
+        if (containsAny("اتعاب متأخرة", "فلوس متاخره", "ديون", "مديونية")) intents["overdue_fees"] = 12
+        
+        // WhatsApp Update Intent
+        if (containsAny("واتساب", "ابعت للعميل", "رسالة للعميل", "تحديث للعميل")) intents["whatsapp_update"] = 12
+
         // Document Q&A Intent (Smart Extract)
         if (containsAny("مستند", "ملف", "الورق") && containsAny("ماذا", "هل", "كم", "سؤال", "ايه المكتوب")) {
              intents["doc_qa"] = 15 
@@ -1593,6 +1611,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             "plan" -> getCaseActionPlan(caseId, onResult)
             "missing_docs" -> answerCaseQuestion(caseId, "missing_docs", onResult)
             "next_session" -> getNextSessionAssistant(caseId, onResult)
+            "sessions_week" -> onResult("ميزة 'جلسات الأسبوع' ستتوفر قريباً لعرض كافة الجلسات المجدولة خلال الـ 7 أيام القادمة.")
+            "overdue_fees" -> onResult("ميزة 'الأتعاب المتأخرة' قيد التطوير وستعرض إجمالي المستحقات المطلوبة من الموكل.")
             "add_session" -> {
                 onResult("حاضر، جاري فتح شاشة إضافة جلسة جديدة لهذه القضية...")
                 navigateTo(Screen.SessionAddEdit(presetCaseId = caseId))
@@ -1605,7 +1625,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 onResult("حاضر، سأقوم بفتح تفاصيل القضية حيث يمكنك الضغط على 'إرفاق مستند' لرفع الملفات بسهولة.")
                 navigateTo(Screen.CaseDetails(caseId))
             }
-            "client_update" -> getClientUpdateAssistant(caseId, userMessage, onResult)
+            "client_update", "whatsapp_update" -> getClientUpdateAssistant(caseId, userMessage, onResult)
             "case_status" -> getCaseStatusAssistant(caseId, userMessage, onResult)
             "tasks" -> getOpenTasksAssistant(caseId, onResult)
             "templates" -> {

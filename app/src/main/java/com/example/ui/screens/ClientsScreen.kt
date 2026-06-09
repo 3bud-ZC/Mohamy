@@ -360,6 +360,8 @@ fun ClientDetailsScreen(
             }
         }
 
+        val feeRecords by viewModel.allFeeRecords.collectAsState(initial = emptyList())
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -389,6 +391,31 @@ fun ClientDetailsScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("حذف الموكل", fontWeight = FontWeight.Bold)
             }
+        }
+
+        Button(
+            onClick = {
+                val uri = com.example.util.PdfExporter.exportClientFinancials(
+                    context, client, clientCases, feeRecords
+                )
+                if (uri != null) {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/pdf"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "مشاركة كشف حساب الموكل"))
+                } else {
+                    android.widget.Toast.makeText(context, "فشل تصدير الـ PDF", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.PictureAsPdf, null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("تصدير كشف حساب (PDF)", fontWeight = FontWeight.Bold)
         }
 
         Row(

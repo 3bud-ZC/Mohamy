@@ -80,6 +80,36 @@ fun SessionsListScreen(viewModel: AppViewModel, sessions: List<CaseSession>, cas
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Search, null) }
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val context = LocalContext.current
+            Button(
+                onClick = {
+                    val reportData = filtered.map { session -> 
+                        session to session.caseTitle
+                    }
+                    val uri = com.example.util.PdfExporter.exportUpcomingSessions(
+                        context, reportData
+                    )
+                    if (uri != null) {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "مشاركة تقرير الجلسات"))
+                    } else {
+                        android.widget.Toast.makeText(context, "فشل تصدير الـ PDF", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.PictureAsPdf, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("تصدير تقرير الجلسات (PDF)", fontWeight = FontWeight.Bold)
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             if (filtered.isEmpty()) {
