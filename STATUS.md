@@ -42,6 +42,7 @@
 - Re-ran the Android unit-test and debug-build baseline and confirmed it remains green.
 - Confirmed the actual GitHub Actions signing secret names from the workflow and README without exposing values.
 - Evaluated the publish script behavior against the current version state and confirmed it should not be used in this run.
+- Created stabilization commit `3140c72` with the validated admin-server, Android test, docs, and status changes.
 - Updated this root `STATUS.md` with the clean-worktree/signing-readiness blocker analysis for release preparation.
 
 ## Current Risks
@@ -49,10 +50,9 @@
 - `scripts/publish-release.ps1` is unsafe to run from the current dirty worktree and is redundant/risky for the already-set `12 / 1.8.0` version state.
 - `update/latest.json` must remain unchanged until the public `v1.8.0` release page and `app-release.apk` asset both exist and are reachable.
 - The remote `v1.8.0` release page and asset were already known to return `404`, so any release manifest update would still be premature.
-- Untracked `.reporadar/` content is tool-generated repo-analysis material and must stay out of the stabilization commit.
+- The tracked stabilization work is now committed, but the worktree is still not fully clean because untracked `.reporadar/` tool-output files remain outside the commit.
 
 ## Next Required Work
-- Create the stabilization commit from the validated files only.
 - Push the stabilization commit only when it is appropriate to update the remote branch.
 - Confirm that the required GitHub repository secrets exist in the trusted CI environment before any tag or release attempt.
 - Build `.\gradlew.bat :app:assembleRelease` only after signing readiness is actually available.
@@ -96,9 +96,11 @@
 - `.\gradlew.bat :app:assembleDebug`: Passed with `BUILD SUCCESSFUL in 36s`.
 - Publish-script simulation: Confirmed the script would still rewrite `app/build.gradle.kts` for the current version inputs instead of acting as a clean no-op.
 - Release-signing readiness: Still blocked locally because `KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD` are missing in the current environment.
+- Post-commit worktree check: tracked stabilization files are committed; only untracked `.reporadar/` remains.
 
 ## Notes For Next Agent
 - Keep exactly this single root `STATUS.md` updated after every meaningful change.
 - Do not update `update/latest.json` until `v1.8.0` exists publicly and the APK asset URL is verified.
 - Do not include `.reporadar/`, local secrets, build outputs, or APK artifacts in the stabilization commit.
 - Prefer a manual tag-from-clean-main route only after CI signing secrets are confirmed; the current publish script is not the safe route from this repo state.
+- Current local git state after the stabilization commit: `main` is ahead of `origin/main` by 1 commit, and `.reporadar/` is still untracked.
