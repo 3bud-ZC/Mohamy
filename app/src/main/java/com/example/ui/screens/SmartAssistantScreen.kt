@@ -25,6 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -201,7 +203,7 @@ fun SmartAssistantScreen(
                         leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null, tint = LegalNavyPrimary) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isCaseDropdownExpanded) },
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             .fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = LegalNavyPrimary,
@@ -305,7 +307,7 @@ fun SmartAssistantScreen(
                         ) {
                             Icon(Icons.Default.Description, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(18.dp))
                             Text(template.title, fontSize = 13.sp, color = LegalNavyPrimary, modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = LegalGoldSecondary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = LegalGoldSecondary, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -404,7 +406,7 @@ fun SmartAssistantScreen(
                         .background(LegalNavyPrimary, CircleShape),
                     enabled = assistantInput.isNotBlank() && !viewModel.isAssistantLoading
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "إرسال", tint = Color.White, modifier = Modifier.padding(start=4.dp))
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "إرسال", tint = Color.White, modifier = Modifier.padding(start = 4.dp))
                 }
             }
         }

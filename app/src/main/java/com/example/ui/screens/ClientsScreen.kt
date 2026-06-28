@@ -6,9 +6,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +62,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -86,10 +92,12 @@ import com.example.data.Client
 import com.example.data.ClientInteraction
 import com.example.data.LegalCase
 import com.example.data.Screen
+import com.example.ui.components.*
 import com.example.ui.theme.LegalGoldLight
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalGrayLight
 import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.legalScreenBackground
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -108,6 +116,9 @@ private fun clientStatusOptions(): List<String> = listOf("نشط", "مؤرشف",
 fun ClientsListScreen(viewModel: AppViewModel, clients: List<Client>) {
     var searchTxt by remember { mutableStateOf("") }
     var selectedStatus by remember { mutableStateOf("الكل") }
+    val activeCases by viewModel.allCases.collectAsState()
+    val archivedCases by viewModel.archivedCases.collectAsState()
+    val allCases = remember(activeCases, archivedCases) { activeCases + archivedCases }
     val normalizedSearch = remember(searchTxt) { viewModel.repository.normalizeArabic(searchTxt) }
     val filtered = remember(clients, normalizedSearch, selectedStatus) {
         clients.filter { client ->
@@ -123,8 +134,8 @@ fun ClientsListScreen(viewModel: AppViewModel, clients: List<Client>) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.navigateTo(Screen.ClientAddEdit()) },
-                containerColor = LegalNavyPrimary,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(Icons.Default.Add, "إضافة موكل")
             }
@@ -135,32 +146,42 @@ fun ClientsListScreen(viewModel: AppViewModel, clients: List<Client>) {
                 .fillMaxSize()
                 .legalScreenBackground()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = MohamyDimens.screenHorizontal, vertical = MohamyDimens.screenVertical),
+            verticalArrangement = Arrangement.spacedBy(MohamyDimens.sectionGap)
         ) {
-            Card(
+            MohamyCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+                title = "سجل الموكلين",
+                subtitle = "إدارة العملاء والملفات المرتبطة بكل موكل مع بحث عربي سريع."
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("سجل الموكلين", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
-                    Text("إجمالي الموكلين: ${clients.size} | النتائج الحالية: ${filtered.size}", fontSize = 12.sp, color = Color.Gray)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MohamyCard(modifier = Modifier.weight(1f), title = "إجمالي الموكلين") {
+                        Text(
+                            text = clients.size.toString(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    MohamyCard(modifier = Modifier.weight(1f), title = "النتائج الحالية") {
+                        Text(
+                            text = filtered.size.toString(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
 
-            OutlinedTextField(
+            MohamySearchBar(
                 value = searchTxt,
                 onValueChange = { searchTxt = it },
-                placeholder = { Text("ابحث عن موكل بالاسم أو الهاتف أو الحالة...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Default.Search, null) }
+                placeholder = "ابحث عن موكل بالاسم أو الهاتف أو الحالة..."
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 (listOf("الكل") + clientStatusOptions()).forEach { status ->
@@ -169,83 +190,44 @@ fun ClientsListScreen(viewModel: AppViewModel, clients: List<Client>) {
                         onClick = { selectedStatus = status },
                         label = { Text(status) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = LegalNavyPrimary,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
             }
 
             if (filtered.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("لم يتم العثور على موكلين مسجلين.", color = Color.Gray)
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = true),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MohamyEmptyState(
+                        icon = Icons.Default.PersonAdd,
+                        title = "لا يوجد موكلون مطابقون",
+                        message = "ابدأ بإضافة أول موكل أو غيّر البحث والحالة لعرض سجلات أخرى.",
+                        actionText = "إضافة موكل",
+                        onActionClick = { viewModel.navigateTo(Screen.ClientAddEdit()) },
+                        secondaryActionText = if (clients.isEmpty() && !viewModel.hasDemoSeededForCurrentWorkspace) "بيانات تجريبية" else null,
+                        onSecondaryActionClick = if (clients.isEmpty() && !viewModel.hasDemoSeededForCurrentWorkspace) {
+                            { viewModel.seedDemoWorkspace() }
+                        } else {
+                            null
+                        }
+                    )
                 }
             } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = true),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
-                    filtered.forEach { client ->
-                        val (statusBg, statusColor) = clientStatusPalette(client.status)
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.navigateTo(Screen.ClientDetails(client.id)) },
-                            shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            ListItem(
-                                colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
-                                leadingContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                Brush.linearGradient(
-                                                    colors = listOf(LegalNavyPrimary, LegalNavyPrimary.copy(alpha = 0.78f))
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = client.name.take(1),
-                                            color = Color.White,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 18.sp
-                                        )
-                                    }
-                                },
-                                headlineContent = {
-                                    Text(client.name, fontWeight = FontWeight.Bold, color = LegalNavyPrimary, fontSize = 16.sp)
-                                },
-                                supportingContent = {
-                                    Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.Gray)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(client.phone, color = Color.Gray, fontSize = 13.sp)
-                                        }
-                                        if (client.notes.isNotBlank()) {
-                                            Text(client.notes, color = Color.DarkGray, fontSize = 12.sp, maxLines = 1)
-                                        }
-                                    }
-                                },
-                                trailingContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(statusBg)
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(client.status, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            )
-                        }
+                    items(filtered) { client ->
+                        ClientCard(
+                            client = client,
+                            caseCount = allCases.count { it.clientId == client.id },
+                            onClick = { viewModel.navigateTo(Screen.ClientDetails(client.id)) }
+                        )
                     }
                 }
             }
@@ -503,7 +485,7 @@ fun ClientDetailsScreen(
                             readOnly = true,
                             label = { Text("ربط بقضية") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = interactionCaseExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         )
                         ExposedDropdownMenu(
                             expanded = interactionCaseExpanded,
@@ -762,7 +744,7 @@ fun ClientAddEditScreen(clientId: Int?, viewModel: AppViewModel, clients: List<C
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(),
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp)
             )
             ExposedDropdownMenu(

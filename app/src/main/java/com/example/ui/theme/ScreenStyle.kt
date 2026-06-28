@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,7 +25,19 @@ fun Modifier.legalScreenBackground(): Modifier =
         Brush.verticalGradient(
             colors = listOf(
                 MaterialTheme.colorScheme.background,
-                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                MaterialTheme.colorScheme.background
+            )
+        )
+    )
+
+@Composable
+fun Modifier.mohamyHeroBackground(): Modifier =
+    this.background(
+        Brush.verticalGradient(
+            colors = listOf(
+                MohamyBlackSoft,
+                MohamyCharcoalSoft,
                 MaterialTheme.colorScheme.background
             )
         )
@@ -38,17 +51,17 @@ fun ScreenSectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(MohamyDimens.cardRadius),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             content()

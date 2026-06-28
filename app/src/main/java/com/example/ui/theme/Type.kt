@@ -22,52 +22,67 @@ val Typography =
     displayLarge =
       TextStyle(
         fontFamily = TajawalFamily,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp,
+      ),
+    displayMedium =
+      TextStyle(
+        fontFamily = TajawalFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 30.sp,
-        lineHeight = 36.sp,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
       ),
     titleLarge =
       TextStyle(
         fontFamily = TajawalFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 30.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
       ),
     titleMedium =
       TextStyle(
         fontFamily = TajawalFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 19.sp,
-        lineHeight = 28.sp,
+        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+        lineHeight = 26.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     bodyLarge =
       TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = TajawalFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 17.sp,
-        lineHeight = 27.sp,
+        fontSize = 16.sp,
+        lineHeight = 25.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     bodyMedium =
       TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = TajawalFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 15.sp,
-        lineHeight = 24.sp,
+        lineHeight = 23.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+      ),
+    bodySmall =
+      TextStyle(
+        fontFamily = TajawalFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 20.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     labelLarge =
       TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontFamily = TajawalFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     labelSmall =
       TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = TajawalFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 18.sp,

@@ -1,40 +1,38 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.BorderStroke
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderCopy
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,24 +43,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.example.data.AppViewModel
-import com.example.data.caseFileShape
 import com.example.data.CaseFile
 import com.example.data.Client
 import com.example.data.LegalCase
 import com.example.data.Screen
-import com.example.data.parseHexColorOrDefault
-import com.example.ui.formatFileSize
+import com.example.ui.components.FileDocumentCard
+import com.example.ui.components.MohamyBadgeTone
+import com.example.ui.components.MohamyButton
+import com.example.ui.components.MohamyButtonStyle
+import com.example.ui.components.MohamyEmptyState
+import com.example.ui.components.MohamySearchBar
+import com.example.ui.components.MohamyStatusBadge
 import com.example.ui.openCaseFile
-import com.example.ui.theme.LegalGoldSecondary
-import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.legalScreenBackground
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.io.File
 
 @Composable
 fun FilesLibraryScreen(
@@ -89,39 +87,67 @@ fun FilesLibraryScreen(
             matchesSearch && matchesType
         }
     }
+    val indexedCount = remember(files) { files.count { it.extractedText.isNotBlank() || it.normalizedSearchIndex.isNotBlank() } }
+    val casesWithFiles = remember(files) { files.map { it.caseId }.distinct().size }
+    val clientsWithFiles = remember(files, clients) { files.map { it.clientId }.distinct().size.coerceAtMost(clients.size) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .legalScreenBackground()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = MohamyDimens.screenHorizontal, vertical = MohamyDimens.screenVertical),
+        verticalArrangement = Arrangement.spacedBy(MohamyDimens.sectionGap)
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(MohamyDimens.largeCardRadius),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("مكتبة الملفات", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
-                Text("إجمالي الملفات: ${files.size} | نتائج التصفية: ${filteredFiles.size}", fontSize = 12.sp, color = Color.Gray)
-                Text("كل ملف مرتبط بقضيته وموكله ويمكن فتحه مباشرة أو مراجعة القضية المرتبطة به.", fontSize = 12.sp, color = Color.DarkGray)
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "مكتبة الملفات",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+                        )
+                        Text(
+                            "أرشيف محلي للمستندات القانونية مع فهرسة البحث وربط كل مستند بقضيته وموكله.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    MohamyStatusBadge(text = "${filteredFiles.size} نتيجة", tone = MohamyBadgeTone.Gold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FileStatCard("إجمالي الملفات", files.size.toString(), Modifier.weight(1f))
+                    FileStatCard("جاهزة للبحث", indexedCount.toString(), Modifier.weight(1f))
+                    FileStatCard("قضايا مرتبطة", casesWithFiles.toString(), Modifier.weight(1f))
+                }
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatMiniCard("قضايا بها ملفات", files.map { it.caseId }.distinct().size.toString(), Modifier.weight(1f))
-            StatMiniCard("موكلون مرتبطون", files.map { it.clientId }.distinct().size.toString(), Modifier.weight(1f))
-        }
-
-        OutlinedTextField(
+        MohamySearchBar(
             value = searchText,
             onValueChange = { searchText = it },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            placeholder = { Text("ابحث باسم الملف أو القضية أو الموكل أو نوع المستند...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
+            placeholder = "ابحث باسم الملف أو نوعه أو القضية أو الموكل أو النص المفهرس..."
         )
 
         Row(
@@ -136,93 +162,97 @@ fun FilesLibraryScreen(
                     onClick = { selectedType = type },
                     label = { Text(type) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = LegalNavyPrimary,
-                        selectedLabelColor = Color.White
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
             }
         }
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MohamyButton(
+                text = "بحث متقدم",
+                icon = Icons.Default.Search,
+                style = MohamyButtonStyle.Secondary,
+                modifier = Modifier.weight(1f),
+                onClick = { viewModel.navigateTo(Screen.Search) }
+            )
+            MohamyStatusBadge(
+                text = "موكلون مرتبطون $clientsWithFiles",
+                tone = MohamyBadgeTone.Neutral
+            )
+        }
+
         if (filteredFiles.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("لا توجد ملفات مطابقة حالياً.", color = Color.Gray)
+                MohamyEmptyState(
+                    icon = Icons.Default.FolderCopy,
+                    title = if (files.isEmpty()) "لا توجد مستندات محفوظة بعد" else "لا توجد نتائج مطابقة",
+                    message =
+                        if (files.isEmpty()) {
+                            "ستظهر هنا كل الملفات المرتبطة بالقضايا بعد استيرادها من داخل ملفات القضايا."
+                        } else {
+                            "جرّب تغيير نوع المستند أو كلمات البحث للوصول إلى النتيجة المطلوبة."
+                        },
+                    actionText = if (files.isEmpty()) "عرض القضايا" else "فتح البحث",
+                    onActionClick = {
+                        if (files.isEmpty()) viewModel.navigateTo(Screen.CasesList) else viewModel.navigateTo(Screen.Search)
+                    },
+                    secondaryActionText = if (files.isEmpty() && !viewModel.hasDemoSeededForCurrentWorkspace) "بيانات تجريبية" else null,
+                    onSecondaryActionClick = if (files.isEmpty() && !viewModel.hasDemoSeededForCurrentWorkspace) {
+                        { viewModel.seedDemoWorkspace() }
+                    } else {
+                        null
+                    }
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
             ) {
-                items(filteredFiles) { file ->
+                items(filteredFiles, key = { it.id }) { file ->
                     val caseExists = cases.any { it.id == file.caseId }
                     val linkedClientName = clients.firstOrNull { it.id == file.clientId }?.name ?: file.clientName
-                    val accent = parseHexColorOrDefault(file.accentColorHex, LegalNavyPrimary)
-                    val fileShape = caseFileShape(file.cardStyle)
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = fileShape,
-                        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.06f)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
+                    FileDocumentCard(
+                        file = file.copy(clientName = linkedClientName),
+                        onClick = { openCaseFile(context, file) }
                     ) {
-                        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            ListItem(
-                                colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
-                                leadingContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
-                                            .padding(10.dp)
-                                    ) {
-                                        Icon(Icons.Default.Description, contentDescription = null, tint = accent)
-                                    }
-                                },
-                                headlineContent = {
-                                    Text(file.fileName, fontWeight = FontWeight.Bold, color = LegalNavyPrimary, fontSize = 15.sp)
-                                },
-                                supportingContent = {
-                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                        Text("${file.docType} | ${formatFileSize(file.fileLength)}", fontSize = 12.sp, color = Color.DarkGray)
-                                        Text("القضية: ${file.caseTitle}", fontSize = 12.sp, color = Color.Gray)
-                                        Text("الموكل: $linkedClientName", fontSize = 12.sp, color = Color.Gray)
-                                        Text(
-                                            "الحالة: ${file.extractionStatus} | الرفع: ${
-                                                SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ENGLISH).format(Date(file.uploadDate))
-                                            }",
-                                            fontSize = 11.sp,
-                                            color = Color.Gray
-                                        )
-                                        Text("الهوية: ${file.cardStyle} | ${file.accentColorHex}", fontSize = 11.sp, color = Color.Gray)
-                                    }
-                                },
-                                trailingContent = {
-                                    Icon(Icons.Default.FolderCopy, contentDescription = null, tint = accent)
-                                }
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = { openCaseFile(context, file) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("فتح الملف")
-                                }
-                                OutlinedButton(
-                                    onClick = { viewModel.navigateTo(Screen.CaseDetails(file.caseId)) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = caseExists
-                                ) {
-                                    Icon(Icons.Default.Gavel, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("فتح القضية")
-                                }
-                            }
+                        MohamyButton(
+                            text = "فتح الملف",
+                            icon = Icons.AutoMirrored.Filled.OpenInNew,
+                            modifier = Modifier.weight(1f),
+                            onClick = { openCaseFile(context, file) }
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.navigateTo(Screen.CaseDetails(file.caseId)) },
+                            enabled = caseExists,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Gavel, contentDescription = null)
+                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(6.dp))
+                            Text("فتح القضية")
+                        }
+                        IconButton(
+                            onClick = { shareCaseFile(context, file) },
+                            modifier = Modifier
+                                .size(46.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.IosShare, contentDescription = "مشاركة", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(
+                            onClick = { viewModel.deleteFile(file) },
+                            modifier = Modifier
+                                .size(46.dp)
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -232,15 +262,50 @@ fun FilesLibraryScreen(
 }
 
 @Composable
-private fun StatMiniCard(title: String, value: String, modifier: Modifier = Modifier) {
+private fun FileStatCard(title: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+        )
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = LegalNavyPrimary)
-            Text(title, fontSize = 12.sp, color = Color.Gray)
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+    }
+}
+
+private fun shareCaseFile(context: android.content.Context, file: CaseFile) {
+    try {
+        val target = File(file.filePath)
+        if (!target.exists()) {
+            Toast.makeText(context, "الملف غير موجود على التخزين المحلي.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", target)
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(shareIntent, "مشاركة المستند"))
+    } catch (e: Exception) {
+        Toast.makeText(context, "تعذر مشاركة الملف: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

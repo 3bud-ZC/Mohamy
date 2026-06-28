@@ -1,256 +1,182 @@
-﻿package com.example.ui.screens
-import com.example.data.*
-import androidx.compose.foundation.BorderStroke
+package com.example.ui.screens
+
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.VpnKey
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.PhoneIphone
+import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.saveable.rememberSaveable
-
-import com.example.ui.theme.LegalGoldSecondary
-import com.example.ui.theme.LegalGoldLight
-import com.example.ui.theme.LegalNavyPrimary
+import com.example.data.AppViewModel
+import com.example.ui.components.MohamyButton
+import com.example.ui.components.MohamyButtonStyle
+import com.example.ui.components.MohamyCard
+import com.example.ui.theme.MohamyBlack
+import com.example.ui.theme.MohamyCharcoal
+import com.example.ui.theme.MohamyDimens
+import com.example.ui.theme.MohamyGold
+import com.example.ui.theme.MohamyWarmTextSoft
 
 @Composable
 fun ActivationScreen(viewModel: AppViewModel) {
-    var agreementChecked by rememberSaveable { mutableStateOf(true) }
-    val canSubmit = agreementChecked &&
-        viewModel.usernameInput.isNotBlank() &&
-        viewModel.LicenseCodeInput.isNotBlank()
+  var agreementChecked by rememberSaveable { mutableStateOf(true) }
+  val canSubmit =
+    agreementChecked && viewModel.usernameInput.isNotBlank() && viewModel.LicenseCodeInput.isNotBlank()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFFF4F7FC), Color.White)
-                )
-            )
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = LegalNavyPrimary)
+  Column(
+    modifier =
+      Modifier.fillMaxSize()
+        .background(Brush.verticalGradient(colors = listOf(MohamyBlack, MohamyCharcoal, MohamyBlack)))
+        .verticalScroll(rememberScrollState())
+        .padding(horizontal = MohamyDimens.screenHorizontal, vertical = MohamyDimens.screenVertical),
+    verticalArrangement = Arrangement.spacedBy(MohamyDimens.sectionGap)
+  ) {
+    MohamyCard {
+      Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
+          modifier = Modifier.size(74.dp).background(MohamyGold.copy(alpha = 0.12f), CircleShape),
+          contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Icon(
-                    imageVector = Icons.Default.Gavel,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.08f),
-                    modifier = Modifier
-                        .size(140.dp)
-                        .align(Alignment.TopEnd)
-                        .offset(x = 18.dp, y = (-20).dp)
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(LegalGoldSecondary.copy(alpha = 0.25f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Gavel,
-                            contentDescription = null,
-                            tint = LegalGoldLight,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "تنشيط محامي فون",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 21.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "ترخيص محلي مشفر للحساب على هذا الجهاز فقط.",
-                            color = Color.White.copy(alpha = 0.86f),
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            }
+          Icon(
+            imageVector = Icons.Default.AccountBalance,
+            contentDescription = null,
+            tint = MohamyGold,
+            modifier = Modifier.size(34.dp)
+          )
         }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f)),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "بيانات تسجيل الدخول",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = LegalNavyPrimary
-                )
-                Text(
-                    text = "استخدم بيانات الحساب المسجلة من لوحة إدارة النظام لبدء مساحة العمل الخاصة بك.",
-                    fontSize = 13.sp,
-                    color = Color(0xFF4B5563),
-                    lineHeight = 20.sp
-                )
-
-                ActivationHintRow(
-                    icon = Icons.Default.Shield,
-                    text = "كل القضايا والملفات تبقى داخل الهاتف ولا تنتقل للسحابة."
-                )
-                ActivationHintRow(
-                    icon = Icons.Default.Lock,
-                    text = "كل حساب يفتح مساحة بيانات مستقلة عن أي حساب آخر."
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-                OutlinedTextField(
-                    value = viewModel.usernameInput,
-                    onValueChange = { viewModel.usernameInput = it },
-                    label = { Text("اسم المستخدم / البريد الإلكتروني") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("username_input"),
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = viewModel.LicenseCodeInput,
-                    onValueChange = { viewModel.LicenseCodeInput = it },
-                    label = { Text("كلمة المرور") },
-                    leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("activation_input"),
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Checkbox(checked = agreementChecked, onCheckedChange = { agreementChecked = it })
-                    Text(
-                        text = "أوافق أن بيانات مكتبي وموكلي تظل محلية وخاصة 100% على هذا الجهاز.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF374151),
-                        lineHeight = 18.sp,
-                        modifier = Modifier
-                            .padding(top = 12.dp)
-                            .weight(1f)
-                    )
-                }
-
-                Button(
-                    onClick = { viewModel.submitLicenseActivation() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("submit_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
-                    shape = RoundedCornerShape(14.dp),
-                    enabled = canSubmit
-                ) {
-                    Text(
-                        text = "تفعيل الحساب وربطه بالجهاز",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
+        Text(
+          text = "تفعيل حساب المحامي",
+          style = MaterialTheme.typography.titleLarge,
+          color = MaterialTheme.colorScheme.onSurface,
+          fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+          text = "واجهة دخول قانونية خاصة بمكتبك. البيانات القانونية تبقى محلية على الهاتف، والاتصال بالشبكة يستخدم فقط للتفعيل والتحقق عند الحاجة.",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+          LegalActivationHint(icon = Icons.Default.VerifiedUser, text = "تفعيل آمن ومربوط بالحساب")
+          LegalActivationHint(icon = Icons.Default.PrivacyTip, text = "خصوصية محلية")
         }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = LegalGoldSecondary.copy(alpha = 0.12f),
-            border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.25f))
-        ) {
-            Text(
-                text = "بعد التفعيل الأول، يمكن تشغيل التطبيق بدون إنترنت لمعظم المهام اليومية.",
-                fontSize = 12.sp,
-                color = LegalNavyPrimary,
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-            )
-        }
+      }
     }
+
+    MohamyCard(title = "الدخول إلى مساحة العمل", subtitle = "استخدم بيانات التفعيل المسجلة من لوحة الإدارة") {
+      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+          value = viewModel.LicenseCodeInput,
+          onValueChange = { viewModel.LicenseCodeInput = it },
+          modifier = Modifier.fillMaxWidth().testTag("activation_input"),
+          shape = RoundedCornerShape(MohamyDimens.buttonRadius),
+          label = { Text("كود التفعيل") },
+          leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+          singleLine = true,
+          colors =
+            OutlinedTextFieldDefaults.colors(
+              focusedBorderColor = MaterialTheme.colorScheme.primary,
+              unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
+        )
+
+        OutlinedTextField(
+          value = viewModel.usernameInput,
+          onValueChange = { viewModel.usernameInput = it },
+          modifier = Modifier.fillMaxWidth().testTag("username_input"),
+          shape = RoundedCornerShape(MohamyDimens.buttonRadius),
+          label = { Text("رقم الهاتف أو البريد") },
+          leadingIcon = { Icon(Icons.Default.PhoneIphone, contentDescription = null) },
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+          singleLine = true,
+          colors =
+            OutlinedTextFieldDefaults.colors(
+              focusedBorderColor = MaterialTheme.colorScheme.primary,
+              unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
+        )
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.Top
+        ) {
+          Checkbox(checked = agreementChecked, onCheckedChange = { agreementChecked = it })
+          Text(
+            text = "أوافق على إبقاء بيانات القضايا والموكلين والمستندات داخل التخزين المحلي للتطبيق على هذا الجهاز.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp)
+          )
+        }
+
+        MohamyButton(
+          text = "تفعيل التطبيق",
+          onClick = { viewModel.submitLicenseActivation() },
+          modifier = Modifier.fillMaxWidth().testTag("submit_button"),
+          enabled = canSubmit
+        )
+      }
+    }
+
+    MohamyCard {
+      Text(
+        text = "ملاحظة: بعد التفعيل الأول، يمكن تشغيل التطبيق بدون إنترنت لمعظم أعمال المكتب اليومية مع الحفاظ على الطابع المحلي للبيانات.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MohamyWarmTextSoft,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+  }
 }
 
 @Composable
-private fun ActivationHintRow(icon: ImageVector, text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(LegalNavyPrimary.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = LegalNavyPrimary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Text(
-            text = text,
-            fontSize = 12.sp,
-            color = Color(0xFF4B5563),
-            lineHeight = 18.sp,
-            modifier = Modifier.weight(1f)
-        )
-    }
+private fun LegalActivationHint(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+  Row(
+    modifier =
+      Modifier.background(
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+        RoundedCornerShape(16.dp)
+      ).padding(horizontal = 12.dp, vertical = 10.dp),
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Icon(imageVector = icon, contentDescription = null, tint = MohamyGold, modifier = Modifier.size(18.dp))
+    Text(text = text, style = MaterialTheme.typography.bodySmall, color = Color.White)
+  }
 }

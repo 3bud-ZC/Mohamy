@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import android.net.Uri
 import android.util.Log
+import androidx.room.withTransaction
 import com.example.BuildConfig
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -43,6 +44,15 @@ data class LicenseActivationPayload(
     val phone: String,
     val licenseKey: String,
     val deviceId: String,
+)
+
+data class DemoSeedResult(
+    val clients: Int,
+    val cases: Int,
+    val sessions: Int,
+    val tasks: Int,
+    val files: Int,
+    val fees: Int,
 )
 
 class Repository(private val db: AppDatabase, private val context: Context) {
@@ -502,8 +512,33 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         return "workspace_${accountKey}_$suffix"
     }
 
+    private fun activeWorkspacePrefKey(suffix: String): String? {
+        val username = currentWorkspaceUsername() ?: return null
+        return accountPrefKey(accountWorkspaceKey(username), suffix)
+    }
+
     fun currentWorkspaceUsername(): String? {
         return prefs.getString("active_workspace_username", null)?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    fun isCurrentWorkspaceOnboardingCompleted(): Boolean {
+        val key = activeWorkspacePrefKey("onboarding_complete") ?: return false
+        return prefs.getBoolean(key, false)
+    }
+
+    fun setCurrentWorkspaceOnboardingCompleted(completed: Boolean) {
+        val key = activeWorkspacePrefKey("onboarding_complete") ?: return
+        prefs.edit().putBoolean(key, completed).apply()
+    }
+
+    fun hasSeededDemoWorkspace(): Boolean {
+        val key = activeWorkspacePrefKey("demo_seeded") ?: return false
+        return prefs.getBoolean(key, false)
+    }
+
+    private fun setSeededDemoWorkspace(seeded: Boolean) {
+        val key = activeWorkspacePrefKey("demo_seeded") ?: return
+        prefs.edit().putBoolean(key, seeded).apply()
     }
 
     suspend fun ensureActiveWorkspaceMarker() {
@@ -792,6 +827,419 @@ class Repository(private val db: AppDatabase, private val context: Context) {
         clearLocalWorkspace()
         clearLicenseSessionCache()
         setActiveWorkspaceUsername(null)
+    }
+
+    private suspend fun workspaceHasPrimaryDataDirect(): Boolean {
+        return clientDao.getAllClients().firstOrNull().orEmpty().isNotEmpty() ||
+            caseDao.getAllActiveCases().firstOrNull().orEmpty().isNotEmpty() ||
+            archivedCasesExist() ||
+            sessionDao.getAllSessions().firstOrNull().orEmpty().isNotEmpty() ||
+            taskDao.getAllTasks().firstOrNull().orEmpty().isNotEmpty() ||
+            fileDao.getAllFiles().firstOrNull().orEmpty().isNotEmpty() ||
+            feeDao.getAllFeeRecords().firstOrNull().orEmpty().isNotEmpty()
+    }
+
+    private suspend fun archivedCasesExist(): Boolean {
+        return caseDao.getAllArchivedCases().firstOrNull().orEmpty().isNotEmpty()
+    }
+
+    suspend fun currentWorkspaceHasPrimaryData(): Boolean {
+        return withContext(Dispatchers.IO) { workspaceHasPrimaryDataDirect() }
+    }
+
+    suspend fun seedDemoWorkspaceData(forceAppend: Boolean = false): Result<DemoSeedResult> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (currentWorkspaceUsername().isNullOrBlank()) {
+                    return@withContext Result.failure(Exception("يلزم فتح مساحة عمل محلية قبل إنشاء العرض التجريبي."))
+                }
+                if (hasSeededDemoWorkspace()) {
+                    return@withContext Result.failure(Exception("تمت إضافة البيانات التجريبية سابقاً داخل مساحة العمل الحالية."))
+                }
+
+                val hasData = workspaceHasPrimaryDataDirect()
+                if (hasData && !forceAppend) {
+                    return@withContext Result.failure(Exception("توجد بيانات حالية داخل مساحة العمل. أكّد أولاً إذا أردت إضافة بيانات تجريبية دون حذفها."))
+                }
+
+                val counts = mutableMapOf(
+                    "clients" to 0,
+                    "cases" to 0,
+                    "sessions" to 0,
+                    "tasks" to 0,
+                    "files" to 0,
+                    "fees" to 0,
+                )
+
+                db.withTransaction {
+                    val now = System.currentTimeMillis()
+
+                    val clientAId = clientDao.insertClient(
+                        Client(
+                            name = "عميل تجريبي - أحمد منصور",
+                            phone = "01000010001",
+                            email = "demo.ahmad@example.test",
+                            address = "عنوان تجريبي - القاهرة",
+                            notes = "بيانات عرض توضيحي فقط وليست حقيقية.",
+                            status = "نشط",
+                            createdDate = now - 100_000L
+                        )
+                    ).toInt()
+                    val clientBId = clientDao.insertClient(
+                        Client(
+                            name = "عميلة تجريبية - منى فؤاد",
+                            phone = "01000010002",
+                            email = "demo.mona@example.test",
+                            address = "عنوان تجريبي - الجيزة",
+                            notes = "موكلة تجريبية لعرض تدفق القضايا والأتعاب.",
+                            status = "نشط",
+                            createdDate = now - 90_000L
+                        )
+                    ).toInt()
+                    val clientCId = clientDao.insertClient(
+                        Client(
+                            name = "شركة تجريبية - النور للمقاولات",
+                            phone = "01000010003",
+                            email = "demo.company@example.test",
+                            address = "منطقة صناعية تجريبية - الإسكندرية",
+                            notes = "شركة وهمية مخصصة للعرض التجاري فقط.",
+                            status = "نشط",
+                            createdDate = now - 80_000L
+                        )
+                    ).toInt()
+                    counts["clients"] = 3
+
+                    val caseAId = caseDao.insertCase(
+                        LegalCase(
+                            title = "ملف تجريبي - صحة توقيع عقد إيجار",
+                            caseNumber = "101",
+                            caseYear = "2026",
+                            caseType = "عقود",
+                            clientId = clientAId,
+                            clientName = "عميل تجريبي - أحمد منصور",
+                            opponentName = "خصم تجريبي - خالد سمير",
+                            courtName = "محكمة شمال القاهرة",
+                            courtCircle = "الدائرة المدنية الرابعة",
+                            startDate = "2026-06-20",
+                            nextSessionDate = "2026-07-15",
+                            status = "متداولة",
+                            priority = "متوسطة",
+                            summary = "نموذج عرض لقضية مدنية تتعلق بصحة توقيع عقد إيجار محل تجاري.",
+                            notes = "هذه القضية لأغراض العرض التجاري فقط.",
+                            createdDate = now - 70_000L
+                        )
+                    ).toInt()
+                    val caseBId = caseDao.insertCase(
+                        LegalCase(
+                            title = "ملف تجريبي - نفقة صغار",
+                            caseNumber = "102",
+                            caseYear = "2026",
+                            caseType = "أسرة",
+                            clientId = clientBId,
+                            clientName = "عميلة تجريبية - منى فؤاد",
+                            opponentName = "خصم تجريبي - سامح عادل",
+                            courtName = "محكمة الأسرة بالجيزة",
+                            courtCircle = "الدائرة الثانية",
+                            startDate = "2026-06-10",
+                            nextSessionDate = "2026-07-08",
+                            status = "قيد العمل",
+                            priority = "عالية",
+                            summary = "ملف أسرة تجريبي يوضح الجلسات والأتعاب والمتابعة الدورية.",
+                            notes = "بيانات غير حقيقية للعرض فقط.",
+                            createdDate = now - 60_000L
+                        )
+                    ).toInt()
+                    val caseCId = caseDao.insertCase(
+                        LegalCase(
+                            title = "ملف تجريبي - تعويض حادث سيارة",
+                            caseNumber = "103",
+                            caseYear = "2026",
+                            caseType = "تعويضات",
+                            clientId = clientAId,
+                            clientName = "عميل تجريبي - أحمد منصور",
+                            opponentName = "شركة تأمين تجريبية",
+                            courtName = "محكمة جنوب القاهرة",
+                            courtCircle = "الدائرة الثامنة",
+                            startDate = "2026-05-18",
+                            lastSessionDate = "2026-06-25",
+                            status = "متداولة",
+                            priority = "متوسطة",
+                            summary = "قضية تعويض تجريبية لعرض إدارة المستندات والمهام.",
+                            notes = "سجل عرض فقط.",
+                            createdDate = now - 50_000L
+                        )
+                    ).toInt()
+                    val caseDId = caseDao.insertCase(
+                        LegalCase(
+                            title = "ملف تجريبي - مطالبة تجارية بمستحقات",
+                            caseNumber = "104",
+                            caseYear = "2026",
+                            caseType = "تجاري",
+                            clientId = clientCId,
+                            clientName = "شركة تجريبية - النور للمقاولات",
+                            opponentName = "مورد تجريبي - الصفا للتوريدات",
+                            courtName = "المحكمة الاقتصادية",
+                            courtCircle = "الدائرة الأولى",
+                            startDate = "2026-06-01",
+                            nextSessionDate = "2026-07-20",
+                            status = "جديدة",
+                            priority = "عالية",
+                            summary = "مطالبة تجارية تجريبية تبرز تنظيم العملاء والقضايا التجارية.",
+                            notes = "عينة عرض فقط.",
+                            createdDate = now - 40_000L
+                        )
+                    ).toInt()
+                    val caseEId = caseDao.insertCase(
+                        LegalCase(
+                            title = "ملف تجريبي - فسخ عقد مقاولة",
+                            caseNumber = "105",
+                            caseYear = "2026",
+                            caseType = "مدني",
+                            clientId = clientCId,
+                            clientName = "شركة تجريبية - النور للمقاولات",
+                            opponentName = "مقاول فرعي تجريبي",
+                            courtName = "محكمة الإسكندرية الابتدائية",
+                            courtCircle = "الدائرة المدنية الثالثة",
+                            startDate = "2026-06-12",
+                            nextSessionDate = "2026-07-28",
+                            status = "قيد العمل",
+                            priority = "متوسطة",
+                            summary = "نموذج فسخ تعاقد يوضح المتابعة والمستندات والجلسات.",
+                            notes = "قضية وهمية لأغراض العرض التجاري.",
+                            createdDate = now - 30_000L
+                        )
+                    ).toInt()
+                    counts["cases"] = 5
+
+                    sessionDao.insertSession(
+                        CaseSession(
+                            caseId = caseAId,
+                            caseTitle = "ملف تجريبي - صحة توقيع عقد إيجار",
+                            clientId = clientAId,
+                            clientName = "عميل تجريبي - أحمد منصور",
+                            title = "جلسة إثبات حضور الخصوم",
+                            type = "جلسة مرافعة",
+                            court = "محكمة شمال القاهرة",
+                            courtCircle = "الدائرة المدنية الرابعة",
+                            date = "2026-07-15",
+                            time = "10:30",
+                            requirements = "أصل العقد وصورة بطاقة الموكل",
+                            status = "قادمة"
+                        )
+                    )
+                    sessionDao.insertSession(
+                        CaseSession(
+                            caseId = caseBId,
+                            caseTitle = "ملف تجريبي - نفقة صغار",
+                            clientId = clientBId,
+                            clientName = "عميلة تجريبية - منى فؤاد",
+                            title = "جلسة إعلان المدعى عليه",
+                            type = "جلسة إجراءات",
+                            court = "محكمة الأسرة بالجيزة",
+                            courtCircle = "الدائرة الثانية",
+                            date = "2026-07-08",
+                            time = "09:45",
+                            requirements = "صحيفة الدعوى وتحريات الدخل",
+                            status = "قادمة"
+                        )
+                    )
+                    sessionDao.insertSession(
+                        CaseSession(
+                            caseId = caseDId,
+                            caseTitle = "ملف تجريبي - مطالبة تجارية بمستحقات",
+                            clientId = clientCId,
+                            clientName = "شركة تجريبية - النور للمقاولات",
+                            title = "جلسة نظر طلب أمر أداء",
+                            type = "جلسة مرافعة",
+                            court = "المحكمة الاقتصادية",
+                            courtCircle = "الدائرة الأولى",
+                            date = "2026-07-20",
+                            time = "11:15",
+                            requirements = "كشف الحساب وإنذار السداد",
+                            status = "قادمة"
+                        )
+                    )
+                    sessionDao.insertSession(
+                        CaseSession(
+                            caseId = caseCId,
+                            caseTitle = "ملف تجريبي - تعويض حادث سيارة",
+                            clientId = clientAId,
+                            clientName = "عميل تجريبي - أحمد منصور",
+                            title = "جلسة سماع الشهود",
+                            type = "جلسة تحقيق",
+                            court = "محكمة جنوب القاهرة",
+                            courtCircle = "الدائرة الثامنة",
+                            date = "2026-06-25",
+                            time = "12:00",
+                            result = "تم التأجيل لتقديم تقرير الخبير",
+                            status = "منتهية"
+                        )
+                    )
+                    counts["sessions"] = 4
+
+                    taskDao.insertTask(
+                        LegalTask(
+                            title = "مراجعة مذكرة صحة التوقيع",
+                            description = "تدقيق المذكرة النهائية قبل جلسة يوليو.",
+                            dueDate = "2026-07-10",
+                            priority = "متوسطة",
+                            status = "مفتوحة",
+                            caseId = caseAId,
+                            caseTitle = "ملف تجريبي - صحة توقيع عقد إيجار",
+                            clientId = clientAId,
+                            clientName = "عميل تجريبي - أحمد منصور"
+                        )
+                    )
+                    taskDao.insertTask(
+                        LegalTask(
+                            title = "تحضير مستندات النفقة",
+                            description = "استكمال تحريات الدخل وصور شهادات الميلاد.",
+                            dueDate = "2026-07-05",
+                            priority = "عاجل",
+                            status = "مفتوحة",
+                            caseId = caseBId,
+                            caseTitle = "ملف تجريبي - نفقة صغار",
+                            clientId = clientBId,
+                            clientName = "عميلة تجريبية - منى فؤاد"
+                        )
+                    )
+                    taskDao.insertTask(
+                        LegalTask(
+                            title = "متابعة تقرير الخبير",
+                            description = "التواصل مع قلم الخبراء بشأن التقرير الفني.",
+                            dueDate = "2026-07-02",
+                            priority = "عاجل",
+                            status = "مفتوحة",
+                            caseId = caseCId,
+                            caseTitle = "ملف تجريبي - تعويض حادث سيارة",
+                            clientId = clientAId,
+                            clientName = "عميل تجريبي - أحمد منصور"
+                        )
+                    )
+                    taskDao.insertTask(
+                        LegalTask(
+                            title = "تجهيز كشف الحساب التجاري",
+                            description = "مراجعة كشف المستحقات وإرفاق الفواتير المؤيدة.",
+                            dueDate = "2026-07-14",
+                            priority = "متوسطة",
+                            status = "مفتوحة",
+                            caseId = caseDId,
+                            caseTitle = "ملف تجريبي - مطالبة تجارية بمستحقات",
+                            clientId = clientCId,
+                            clientName = "شركة تجريبية - النور للمقاولات"
+                        )
+                    )
+                    taskDao.insertTask(
+                        LegalTask(
+                            title = "فتح ملف شهود العقد",
+                            description = "تجهيز قائمة الشهود في نزاع فسخ العقد.",
+                            dueDate = "2026-07-18",
+                            priority = "عادية",
+                            status = "مفتوحة",
+                            caseId = caseEId,
+                            caseTitle = "ملف تجريبي - فسخ عقد مقاولة",
+                            clientId = clientCId,
+                            clientName = "شركة تجريبية - النور للمقاولات"
+                        )
+                    )
+                    counts["tasks"] = 5
+
+                    val demoFiles = listOf(
+                        Triple(caseAId to clientAId, "مذكرة دفاع تجريبية.txt", "مذكرة"),
+                        Triple(caseBId to clientBId, "حافظة مستندات تجريبية.txt", "مستند"),
+                        Triple(caseDId to clientCId, "مطالبة تجارية تجريبية.txt", "مذكرة"),
+                    )
+                    demoFiles.forEachIndexed { index, (ids, fileName, docType) ->
+                        val caseId = ids.first
+                        val clientId = ids.second
+                        val caseTitle = when (caseId) {
+                            caseAId -> "ملف تجريبي - صحة توقيع عقد إيجار"
+                            caseBId -> "ملف تجريبي - نفقة صغار"
+                            else -> "ملف تجريبي - مطالبة تجارية بمستحقات"
+                        }
+                        val clientName = when (clientId) {
+                            clientAId -> "عميل تجريبي - أحمد منصور"
+                            clientBId -> "عميلة تجريبية - منى فؤاد"
+                            else -> "شركة تجريبية - النور للمقاولات"
+                        }
+                        val targetFile = File(getCaseFilesDirectory(caseId), "demo_${index + 1}_${fileName}")
+                        val content = """
+                            هذا مستند تجريبي محفوظ محلياً داخل مساحة العرض فقط.
+                            القضية: $caseTitle
+                            الموكل: $clientName
+                            نوع المستند: $docType
+                        """.trimIndent()
+                        targetFile.writeText(content, Charsets.UTF_8)
+                        val normalizedIndex = normalizeArabic("${targetFile.name} $docType $caseTitle $clientName $content")
+                        fileDao.insertFile(
+                            CaseFile(
+                                caseId = caseId,
+                                caseTitle = caseTitle,
+                                clientId = clientId,
+                                clientName = clientName,
+                                fileName = targetFile.name,
+                                filePath = targetFile.absolutePath,
+                                docType = docType,
+                                fileLength = targetFile.length(),
+                                extractedText = content,
+                                extractionStatus = "جاهز للبحث النصي",
+                                normalizedSearchIndex = normalizedIndex,
+                                accentColorHex = "#D4AF37",
+                                cardStyle = "rounded"
+                            )
+                        )
+                    }
+                    counts["files"] = 3
+
+                    feeDao.insert(
+                        FeeRecord(
+                            clientId = clientBId,
+                            clientName = "عميلة تجريبية - منى فؤاد",
+                            caseId = caseBId,
+                            caseTitle = "ملف تجريبي - نفقة صغار",
+                            title = "دفعة أتعاب أولى - ملف نفقة",
+                            totalAmount = 12000.0,
+                            paidAmount = 6000.0,
+                            dueDate = "2026-07-12",
+                            status = "مستحقة",
+                            paymentMethod = "تحويل بنكي",
+                            notes = "عينة تجارية غير حقيقية."
+                        )
+                    )
+                    feeDao.insert(
+                        FeeRecord(
+                            clientId = clientCId,
+                            clientName = "شركة تجريبية - النور للمقاولات",
+                            caseId = caseDId,
+                            caseTitle = "ملف تجريبي - مطالبة تجارية بمستحقات",
+                            title = "أتعاب أمر الأداء التجاري",
+                            totalAmount = 22000.0,
+                            paidAmount = 10000.0,
+                            dueDate = "2026-07-22",
+                            status = "مستحقة",
+                            paymentMethod = "نقدي",
+                            notes = "سجل أتعاب للعرض فقط."
+                        )
+                    )
+                    counts["fees"] = 2
+                }
+
+                setSeededDemoWorkspace(true)
+                setCurrentWorkspaceOnboardingCompleted(true)
+                Result.success(
+                    DemoSeedResult(
+                        clients = counts.getValue("clients"),
+                        cases = counts.getValue("cases"),
+                        sessions = counts.getValue("sessions"),
+                        tasks = counts.getValue("tasks"),
+                        files = counts.getValue("files"),
+                        fees = counts.getValue("fees"),
+                    )
+                )
+            } catch (e: Exception) {
+                Result.failure(Exception(e.message ?: "تعذر إنشاء مساحة العرض التجريبية."))
+            }
+        }
     }
 
     // --- Backup & Restore Logic ---

@@ -150,6 +150,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var updateDownloadProgress by mutableStateOf(0)
     var downloadedUpdateFilePath by mutableStateOf<String?>(null)
     var updateStatusMessage by mutableStateOf<String?>(null)
+    var isOnboardingCompleted by mutableStateOf(false)
+        private set
+    var hasDemoSeededForCurrentWorkspace by mutableStateOf(false)
+        private set
     val hasConfiguredCloudAssistant: Boolean
         get() = repository.hasConfiguredCloudAssistant()
 
@@ -166,8 +170,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             isCloudAssistantEnabled = repository.isCloudAssistantEnabled()
             isDarkThemeEnabled = prefs.getBoolean("dark_mode_enabled", false)
             repository.ensureActiveWorkspaceMarker()
+            refreshWorkspacePresentationState()
             repository.consumePendingActivation()?.let {
                 repository.persistActivatedLicense(it)
+                refreshWorkspacePresentationState()
                 globalSuccessMsg = "تم فتح مساحة الحساب المحلية بنجاح."
             }
             // Check first-run templates seeding
@@ -203,6 +209,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     val currentWorkspaceUsername = repository.currentWorkspaceUsername()
                     if (currentWorkspaceUsername.equals(targetUsername, ignoreCase = true)) {
                         repository.persistActivatedLicense(activation)
+                        refreshWorkspacePresentationState()
                         globalSuccessMsg = "تم تفعيل الترخيص بنجاح وارتباطه بجهازك!"
                         navigateTo(Screen.Dashboard, addToBackStack = false)
                     } else {
@@ -230,10 +237,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             searchEngineQuery = ""
             usernameInput = ""
             LicenseCodeInput = ""
+            isOnboardingCompleted = false
+            hasDemoSeededForCurrentWorkspace = false
             globalSuccessMsg = "تم تسجيل الخروج مع حفظ مساحة هذا الحساب محلياً على الجهاز."
             globalInfoMsg = null
             navigateTo(Screen.Activation, addToBackStack = false)
         }
+    }
+
+    private fun refreshWorkspacePresentationState() {
+        isOnboardingCompleted = repository.isCurrentWorkspaceOnboardingCompleted()
+        hasDemoSeededForCurrentWorkspace = repository.hasSeededDemoWorkspace()
     }
 
     private fun requestAppReload() {
@@ -268,6 +282,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         isDarkThemeEnabled = enabled
         prefs.edit().putBoolean("dark_mode_enabled", enabled).apply()
         globalInfoMsg = if (enabled) "تم تفعيل الوضع الليلي الاحترافي." else "تم تفعيل الوضع الفاتح."
+    }
+
+    fun completeOnboarding() {
+        repository.setCurrentWorkspaceOnboardingCompleted(true)
+        refreshWorkspacePresentationState()
+        globalInfoMsg = "تم إخفاء بطاقة الترحيب لهذا الحساب المحلي."
+    }
+
+    fun reopenOnboarding() {
+        repository.setCurrentWorkspaceOnboardingCompleted(false)
+        refreshWorkspacePresentationState()
+        navigateTo(Screen.Dashboard)
+        globalInfoMsg = "تمت إعادة تفعيل بطاقة الترحيب لعرض خطوات البداية."
+    }
+
+    fun seedDemoWorkspace(forceAppend: Boolean = false) {
+        viewModelScope.launch {
+            repository.seedDemoWorkspaceData(forceAppend)
+                .onSuccess { result ->
+                    refreshWorkspacePresentationState()
+                    globalSuccessMsg =
+                        "تم إنشاء مساحة عرض محلية: ${result.clients} موكلين، ${result.cases} قضايا، ${result.sessions} جلسات، ${result.tasks} مهام، ${result.files} مستندات، ${result.fees} سجلات أتعاب."
+                    navigateTo(Screen.Dashboard)
+                }
+                .onFailure {
+                    globalErrorMsg = it.message ?: "تعذر إنشاء بيانات العرض التجريبية."
+                }
+        }
     }
 
     fun checkForAppUpdate(showUserFeedback: Boolean = true) {

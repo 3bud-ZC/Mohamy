@@ -27,8 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Notes
-import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileOpen
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -287,7 +287,7 @@ fun TemplateFormScreen(
                         readOnly = true,
                         label = { Text("القضية المرتبطة") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     )
                     ExposedDropdownMenu(
                         expanded = caseExpanded,
@@ -370,7 +370,7 @@ fun TemplateFormScreen(
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary)
             ) {
-                Icon(Icons.Default.Article, null)
+                Icon(Icons.AutoMirrored.Filled.Article, null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("توليد المسودة القانونية", fontWeight = FontWeight.Bold)
             }
@@ -519,7 +519,7 @@ private fun ColumnScope.RenderGeneratedDocumentEditor(
         )
         ExportActionButton(
             label = "TXT",
-            icon = Icons.Default.TextSnippet,
+            icon = Icons.AutoMirrored.Filled.TextSnippet,
             modifier = Modifier.weight(1f),
             onClick = {
                 DocumentExportManager.exportToText(context, generatedTitle, outputText)

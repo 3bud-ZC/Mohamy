@@ -1,14 +1,19 @@
 package com.example.ui.screens
-import com.example.data.*
-import java.util.Calendar
-import java.util.Locale
+
 import android.content.Intent
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -16,40 +21,90 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppViewModel
+import com.example.data.CaseSession
+import com.example.data.LegalCase
+import com.example.data.Screen
+import com.example.ui.components.MohamyBadgeTone
+import com.example.ui.components.MohamyButton
+import com.example.ui.components.MohamyButtonStyle
+import com.example.ui.components.MohamyEmptyState
+import com.example.ui.components.MohamySearchBar
+import com.example.ui.components.MohamyStatusBadge
+import com.example.ui.components.SessionCard
 import com.example.ui.theme.LegalGoldLight
 import com.example.ui.theme.LegalGoldSecondary
-import com.example.ui.theme.LegalGrayLight
 import com.example.ui.theme.LegalNavyPrimary
+import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.legalScreenBackground
+import java.util.Calendar
+import java.util.Locale
 
 @Composable
 fun SessionsListScreen(viewModel: AppViewModel, sessions: List<CaseSession>, cases: List<LegalCase>) {
     var searchTxt by remember { mutableStateOf("") }
     val normalizedSearch = remember(searchTxt) { viewModel.repository.normalizeArabic(searchTxt) }
-    val filtered = sessions.filter {
-        val haystack = viewModel.repository.normalizeArabic("${it.caseTitle} ${it.title} ${it.court} ${it.courtCircle} ${it.clientName} ${it.status}")
-        normalizedSearch.isBlank() || haystack.contains(normalizedSearch)
+    val filteredSessions = remember(sessions, normalizedSearch) {
+        sessions.filter {
+            val haystack = viewModel.repository.normalizeArabic(
+                "${it.caseTitle} ${it.title} ${it.type} ${it.court} ${it.courtCircle} ${it.clientName} ${it.status} ${it.requirements} ${it.result}"
+            )
+            normalizedSearch.isBlank() || haystack.contains(normalizedSearch)
+        }
     }
+    val upcomingCount = remember(sessions) { sessions.count { it.status == "قادمة" } }
+    val completedCount = remember(sessions) { sessions.count { it.status == "منتهية" } }
+    val linkedCasesCount = remember(sessions, cases) { sessions.map { it.caseId }.distinct().size.coerceAtMost(cases.size) }
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = Color.Transparent,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.navigateTo(Screen.SessionAddEdit()) },
-                containerColor = LegalNavyPrimary,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.AddAlert, "إضافة جلسة")
+                Icon(Icons.Default.Add, contentDescription = "إضافة جلسة")
             }
         }
     ) { padding ->
@@ -58,140 +113,185 @@ fun SessionsListScreen(viewModel: AppViewModel, sessions: List<CaseSession>, cas
                 .fillMaxSize()
                 .legalScreenBackground()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = MohamyDimens.screenHorizontal, vertical = MohamyDimens.screenVertical),
+            verticalArrangement = Arrangement.spacedBy(MohamyDimens.sectionGap)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, LegalNavyPrimary.copy(alpha = 0.08f))
+                shape = RoundedCornerShape(MohamyDimens.largeCardRadius),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("سجل الجلسات", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = LegalNavyPrimary)
-                    Text("إجمالي الجلسات: ${sessions.size}", fontSize = 12.sp, color = Color.Gray)
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                "سجل الجلسات",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "واجهة متابعة المرافعات والمواعيد القادمة داخل المكتب المحلي.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        MohamyStatusBadge(
+                            text = "${filteredSessions.size} نتيجة",
+                            tone = MohamyBadgeTone.Gold
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SessionStatCard("إجمالي الجلسات", sessions.size.toString(), Modifier.weight(1f))
+                        SessionStatCard("الجلسات القادمة", upcomingCount.toString(), Modifier.weight(1f))
+                        SessionStatCard("القضايا المرتبطة", linkedCasesCount.toString(), Modifier.weight(1f))
+                    }
                 }
             }
 
-            OutlinedTextField(
+            MohamySearchBar(
                 value = searchTxt,
                 onValueChange = { searchTxt = it },
-                placeholder = { Text("البحث في الجلسات حسب الدعوى أو المحكمة...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Default.Search, null) }
+                placeholder = "ابحث بالدعوى أو المحكمة أو الموكل أو متطلبات الجلسة..."
             )
-            Spacer(modifier = Modifier.height(8.dp))
 
-            val context = LocalContext.current
-            Button(
-                onClick = {
-                    val reportData = filtered.map { session -> 
-                        session to session.caseTitle
-                    }
-                    val uri = com.example.util.PdfExporter.exportUpcomingSessions(
-                        context, reportData
-                    )
-                    if (uri != null) {
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/pdf"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        context.startActivity(Intent.createChooser(intent, "مشاركة تقرير الجلسات"))
-                    } else {
-                        android.widget.Toast.makeText(context, "فشل تصدير الـ PDF", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Description, null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("تصدير تقرير الجلسات (PDF)", fontWeight = FontWeight.Bold)
+                MohamyButton(
+                    text = "تصدير تقرير الجلسات",
+                    icon = Icons.Default.Description,
+                    style = MohamyButtonStyle.Secondary,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        val reportData = filteredSessions.map { session -> session to session.caseTitle }
+                        val uri = com.example.util.PdfExporter.exportUpcomingSessions(context, reportData)
+                        if (uri != null) {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "مشاركة تقرير الجلسات"))
+                        } else {
+                            android.widget.Toast.makeText(context, "فشل تصدير الـ PDF", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+                MohamyStatusBadge(
+                    text = "منتهية $completedCount",
+                    tone = MohamyBadgeTone.Success
+                )
             }
-            Spacer(modifier = Modifier.height(16.dp))
 
-            if (filtered.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("لا توجد أي جلسات مسجلة حالياً.", color = Color.Gray)
+            if (filteredSessions.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MohamyEmptyState(
+                        icon = Icons.Default.CalendarToday,
+                        title = if (sessions.isEmpty()) "لا توجد جلسات محفوظة بعد" else "لا توجد نتائج مطابقة",
+                        message =
+                            if (sessions.isEmpty()) {
+                                "ابدأ بجدولة أول جلسة وربطها بالقضية المناسبة داخل الأرشيف المحلي."
+                            } else {
+                                "جرّب تعديل كلمات البحث أو راجع حالة الجلسات الحالية."
+                            },
+                        actionText = if (sessions.isEmpty()) "إضافة جلسة" else null,
+                        onActionClick =
+                            if (sessions.isEmpty()) {
+                                {
+                                    if (cases.isEmpty()) viewModel.navigateTo(Screen.CaseAddEdit()) else viewModel.navigateTo(Screen.SessionAddEdit())
+                                }
+                            } else {
+                                null
+                            },
+                        secondaryActionText = if (sessions.isEmpty() && !viewModel.hasDemoSeededForCurrentWorkspace) "عرض تجريبي" else null,
+                        onSecondaryActionClick = if (sessions.isEmpty() && !viewModel.hasDemoSeededForCurrentWorkspace) {
+                            { viewModel.seedDemoWorkspace() }
+                        } else {
+                            null
+                        }
+                    )
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filtered) { ses ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp)
-                                .clickable { viewModel.navigateTo(Screen.SessionAddEdit(sessionId = ses.id)) },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+                ) {
+                    items(filteredSessions, key = { it.id }) { session ->
+                        SessionCard(
+                            session = session,
+                            onClick = { viewModel.navigateTo(Screen.SessionAddEdit(sessionId = session.id)) }
                         ) {
-                            ListItem(
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                leadingContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .background(LegalGrayLight),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Event,
-                                            contentDescription = null,
-                                            tint = LegalNavyPrimary,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                },
-                                headlineContent = { Text(ses.caseTitle, fontWeight = FontWeight.Bold, color = LegalNavyPrimary, fontSize = 16.sp) },
-                                supportingContent = { 
-                                    Column(modifier = Modifier.padding(top = 4.dp)) {
-                                        Text("موضوع: ${ses.title}", color = Color.DarkGray, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.Gray)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("${ses.date} في ${ses.time}", color = Color.Gray, fontSize = 12.sp) 
-                                        }
-                                    }
-                                },
-                                trailingContent = {
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(LegalGoldSecondary.copy(alpha = 0.15f))
-                                                .border(1.dp, LegalGoldSecondary.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                                        ) {
-                                            Text(ses.status, color = LegalNavyPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        TextButton(
-                                            onClick = { viewModel.navigateTo(Screen.SessionAddEdit(sessionId = ses.id)) },
-                                            contentPadding = PaddingValues(0.dp),
-                                            modifier = Modifier.height(20.dp)
-                                        ) {
-                                            Text("تعديل", color = LegalNavyPrimary, fontSize = 11.sp)
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        TextButton(
-                                            onClick = { viewModel.deleteSession(ses) },
-                                            contentPadding = PaddingValues(0.dp),
-                                            modifier = Modifier.height(20.dp)
-                                        ) {
-                                            Text("حذف الجلسة", color = Color.Red, fontSize = 11.sp)
-                                        }
-                                    }
-                                }
+                            MohamyButton(
+                                text = "تعديل",
+                                icon = Icons.Default.Edit,
+                                style = MohamyButtonStyle.Secondary,
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.navigateTo(Screen.SessionAddEdit(sessionId = session.id)) }
+                            )
+                            MohamyButton(
+                                text = "حذف",
+                                icon = Icons.Default.DeleteOutline,
+                                style = MohamyButtonStyle.Ghost,
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.deleteSession(session) }
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SessionStatCard(title: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -274,7 +374,7 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (editing == null) Icons.Default.AddAlert else Icons.Default.Edit,
+                        imageVector = if (editing == null) Icons.Default.Add else Icons.Default.Edit,
                         contentDescription = null,
                         tint = LegalGoldLight,
                         modifier = Modifier.size(24.dp)
@@ -304,13 +404,18 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.3f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red.copy(alpha = 0.3f)),
                 colors = CardDefaults.cardColors(containerColor = Color.Red.copy(alpha = 0.05f))
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Warning, null, tint = Color.Red)
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("لا توجد قضايا نشطة مضافة بالمكتب حالياً لجدولة الجلسة عليها.", color = Color.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "لا توجد قضايا نشطة مضافة بالمكتب حالياً لجدولة الجلسة عليها.",
+                        color = Color.Red,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         } else {
@@ -327,7 +432,10 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = caseExpanded) },
                     modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = LegalGoldSecondary, focusedLabelColor = LegalNavyPrimary)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = LegalGoldSecondary,
+                        focusedLabelColor = LegalNavyPrimary
+                    )
                 )
                 ExposedDropdownMenu(
                     expanded = caseExpanded,
@@ -396,7 +504,7 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
         OutlinedTextField(
             value = result,
             onValueChange = { result = it },
-            label = { Text("القرار والنتيجة (في حل انتهت)") },
+            label = { Text("القرار والنتيجة (في حال انتهت)") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -454,9 +562,7 @@ fun SessionAddEditScreen(sessionId: Int?, presetCaseId: Int?, viewModel: AppView
                     }
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
             enabled = date.isNotEmpty() && cases.isNotEmpty()
         ) {

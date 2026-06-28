@@ -42,6 +42,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.example.MainActivity
 import com.example.data.*
+import com.example.ui.components.MohamyBottomNav
+import com.example.ui.components.MohamyBottomNavItem
+import com.example.ui.components.MohamyTopBar
+import com.example.ui.components.MohamyTopBarAction
 import com.example.ui.theme.LegalGoldSecondary
 import com.example.ui.theme.LegalNavyPrimary
 import com.example.ui.theme.LegalGoldLight
@@ -126,6 +130,41 @@ tailrec fun Context.findHostActivity(): androidx.activity.ComponentActivity? {
         else -> null
     }
 }
+
+private fun screenTitle(screen: Screen): String =
+    when (screen) {
+        is Screen.Dashboard -> "الرئيسية"
+        is Screen.ClientsList, is Screen.ClientDetails, is Screen.ClientAddEdit -> "العملاء"
+        is Screen.CasesList, is Screen.CaseDetails, is Screen.CaseAddEdit -> "القضايا"
+        is Screen.SessionsList, is Screen.SessionAddEdit -> "الجلسات"
+        is Screen.TasksList, is Screen.TaskAddEdit -> "المهام"
+        is Screen.FilesLibrary -> "الملفات"
+        is Screen.Search -> "البحث"
+        is Screen.Settings -> "الإعدادات"
+        is Screen.BackupRestore -> "النسخ الاحتياطي"
+        is Screen.SmartAssistant -> "المساعد الذكي"
+        is Screen.LegalTemplatesList, is Screen.TemplateForm -> "القوالب"
+        is Screen.ImportData -> "استيراد البيانات"
+        is Screen.Splash -> "محامي فون"
+        is Screen.Activation -> "تفعيل الحساب"
+    }
+
+private fun screenSubtitle(screen: Screen): String =
+    when (screen) {
+        is Screen.Dashboard -> "إدارة المكتب القانوني المحلي"
+        is Screen.ClientsList, is Screen.ClientDetails, is Screen.ClientAddEdit -> "بيانات الموكلين والمتابعة"
+        is Screen.CasesList, is Screen.CaseDetails, is Screen.CaseAddEdit -> "متابعة القضايا والجلسات"
+        is Screen.SessionsList, is Screen.SessionAddEdit -> "تقويم المرافعات والمواعيد"
+        is Screen.TasksList, is Screen.TaskAddEdit -> "تنظيم سير العمل اليومي"
+        is Screen.FilesLibrary -> "أرشفة المستندات القانونية"
+        is Screen.Search -> "البحث داخل الملفات والقضايا"
+        is Screen.Settings -> "الخصوصية والنسخ والإعدادات"
+        is Screen.BackupRestore -> "حماية البيانات المحلية"
+        is Screen.SmartAssistant -> "مساعد قانوني محلي"
+        is Screen.LegalTemplatesList, is Screen.TemplateForm -> "مستندات وصيغ قانونية"
+        is Screen.ImportData -> "نقل البيانات إلى التطبيق"
+        is Screen.Splash, is Screen.Activation -> ""
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -267,114 +306,82 @@ fun MainLayout(viewModel: AppViewModel) {
             containerColor = Color.Transparent,
             topBar = {
                 if (activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = "محامي فون",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimary
+                    MohamyTopBar(
+                        title = screenTitle(activeScreen),
+                        subtitle = screenSubtitle(activeScreen).ifBlank { null },
+                        showBackButton = activeScreen != Screen.Dashboard,
+                        onBackClick = {
+                            if (!viewModel.goBack()) {
+                                viewModel.navigateTo(Screen.Dashboard, addToBackStack = false)
+                            }
+                        },
+                        actions = listOf(
+                            MohamyTopBarAction(
+                                icon = Icons.Default.AutoAwesome,
+                                contentDescription = "المساعد الذكي",
+                                onClick = { viewModel.navigateTo(Screen.SmartAssistant) }
+                            ),
+                            MohamyTopBarAction(
+                                icon = Icons.Default.Search,
+                                contentDescription = "بحث المستندات والأدلة",
+                                onClick = { viewModel.navigateTo(Screen.Search) }
+                            ),
+                            MohamyTopBarAction(
+                                icon = Icons.Default.Settings,
+                                contentDescription = "الإعدادات",
+                                onClick = { viewModel.navigateTo(Screen.Settings) }
                             )
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            titleContentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        actions = {
-                            IconButton(onClick = { viewModel.navigateTo(Screen.SmartAssistant) }) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = "المساعد الذكي",
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                            IconButton(onClick = { viewModel.navigateTo(Screen.Search) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "بحث المستندات والأدلة",
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                            IconButton(onClick = { viewModel.navigateTo(Screen.Settings) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "الإعدادات",
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                        },
-                        navigationIcon = {
-                            if (activeScreen != Screen.Dashboard) {
-                                IconButton(onClick = {
-                                    if (!viewModel.goBack()) {
-                                        viewModel.navigateTo(Screen.Dashboard, addToBackStack = false)
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowBack,
-                                        contentDescription = "رجوع",
-                                        tint = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                }
-                            }
-                        }
+                        )
                     )
                 }
             },
             bottomBar = {
                 if (activeScreen != Screen.Splash && activeScreen != Screen.Activation) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(32.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            shadowElevation = 12.dp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            NavigationBar(
-                                containerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                                tonalElevation = 0.dp,
-                                modifier = Modifier.height(72.dp)
-                            ) {
-                                val items = listOf(
-                                    Triple("المكتبة", Icons.Default.FolderCopy, activeScreen is Screen.FilesLibrary || activeScreen is Screen.Search),
-                                    Triple("القضايا", Icons.Default.Gavel, activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit),
-                                    Triple("المساعد", Icons.Default.AutoAwesome, activeScreen is Screen.SmartAssistant),
-                                    Triple("الموكلون", Icons.Default.People, activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit),
-                                    Triple("الجلسات", Icons.Default.CalendarToday, activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit)
-                                )
-                                
-                                items.forEach { (label, icon, selected) ->
-                                    NavigationBarItem(
-                                        selected = selected,
-                                        onClick = {
-                                            when (label) {
-                                                "المكتبة" -> viewModel.navigateTo(Screen.FilesLibrary)
-                                                "القضايا" -> viewModel.navigateTo(Screen.CasesList)
-                                                "المساعد" -> viewModel.navigateTo(Screen.SmartAssistant)
-                                                "الموكلون" -> viewModel.navigateTo(Screen.ClientsList)
-                                                "الجلسات" -> viewModel.navigateTo(Screen.SessionsList)
-                                            }
-                                        },
-                                        icon = { Icon(imageVector = icon, contentDescription = label) },
-                                        label = { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = LegalGoldSecondary,
-                                            selectedTextColor = LegalNavyPrimary,
-                                            indicatorColor = LegalNavyPrimary.copy(alpha = 0.1f),
-                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        ),
-                                        alwaysShowLabel = false
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    MohamyBottomNav(
+                        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+                        items = listOf(
+                            MohamyBottomNavItem(
+                                label = "الرئيسية",
+                                icon = Icons.Default.Home,
+                                selected = activeScreen is Screen.Dashboard,
+                                onClick = { viewModel.navigateTo(Screen.Dashboard, addToBackStack = false) }
+                            ),
+                            MohamyBottomNavItem(
+                                label = "القضايا",
+                                icon = Icons.Default.Gavel,
+                                selected = activeScreen is Screen.CasesList || activeScreen is Screen.CaseDetails || activeScreen is Screen.CaseAddEdit,
+                                onClick = { viewModel.navigateTo(Screen.CasesList) }
+                            ),
+                            MohamyBottomNavItem(
+                                label = "الجلسات",
+                                icon = Icons.Default.CalendarToday,
+                                selected = activeScreen is Screen.SessionsList || activeScreen is Screen.SessionAddEdit,
+                                onClick = { viewModel.navigateTo(Screen.SessionsList) }
+                            ),
+                            MohamyBottomNavItem(
+                                label = "العملاء",
+                                icon = Icons.Default.People,
+                                selected = activeScreen is Screen.ClientsList || activeScreen is Screen.ClientDetails || activeScreen is Screen.ClientAddEdit,
+                                onClick = { viewModel.navigateTo(Screen.ClientsList) }
+                            ),
+                            MohamyBottomNavItem(
+                                label = "المزيد",
+                                icon = Icons.Default.MoreHoriz,
+                                selected =
+                                    activeScreen is Screen.Settings ||
+                                        activeScreen is Screen.TasksList ||
+                                        activeScreen is Screen.TaskAddEdit ||
+                                        activeScreen is Screen.FilesLibrary ||
+                                        activeScreen is Screen.Search ||
+                                        activeScreen is Screen.SmartAssistant ||
+                                        activeScreen is Screen.BackupRestore ||
+                                        activeScreen is Screen.LegalTemplatesList ||
+                                        activeScreen is Screen.TemplateForm ||
+                                        activeScreen is Screen.ImportData,
+                                onClick = { viewModel.navigateTo(Screen.Settings) }
+                            )
+                        )
+                    )
                 }
             }
         ) { innerPadding ->
@@ -609,7 +616,8 @@ fun MainLayout(viewModel: AppViewModel) {
                     Snackbar(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(16.dp),
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 24.dp),
                         action = {
                             TextButton(onClick = { viewModel.globalSuccessMsg = null }) {
                                 Text("حسناً", color = MaterialTheme.colorScheme.primaryContainer)
@@ -624,7 +632,8 @@ fun MainLayout(viewModel: AppViewModel) {
                     Snackbar(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(16.dp),
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 24.dp),
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         action = {
@@ -641,7 +650,8 @@ fun MainLayout(viewModel: AppViewModel) {
                     Snackbar(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(16.dp),
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 24.dp),
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         action = {
@@ -657,4 +667,7 @@ fun MainLayout(viewModel: AppViewModel) {
         }
     }
 }
+
+
+
 
