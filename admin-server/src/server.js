@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
@@ -11,8 +11,8 @@ const { generateLicenseKey } = require('./utils');
 const PORT = Number(process.env.PORT || 8080);
 const LIFETIME_MAX_DEVICES = 1;
 
-function parseCorsOrigins() {
-  const raw = (process.env.CORS_ORIGINS || '').trim();
+function parseCorsOrigins(rawValue = process.env.CORS_ORIGINS) {
+  const raw = (rawValue || '').trim();
   if (!raw) return true;
 
   const origins = raw
@@ -37,12 +37,19 @@ function normalizeStatus(input, allowed, fallback) {
   return value;
 }
 
-async function start() {
-  const db = await getDb();
+function createApp({
+  db,
+  corsOrigins = process.env.CORS_ORIGINS,
+  trustProxy = process.env.TRUST_PROXY === 'true',
+} = {}) {
+  if (!db) {
+    throw new Error('db is required');
+  }
+
   const app = express();
 
-  app.set('trust proxy', process.env.TRUST_PROXY === 'true');
-  app.use(cors({ origin: parseCorsOrigins() }));
+  app.set('trust proxy', trustProxy);
+  app.use(cors({ origin: parseCorsOrigins(corsOrigins) }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -462,12 +469,28 @@ async function start() {
     return res.status(500).json({ error: 'internal_server_error' });
   });
 
-  app.listen(PORT, () => {
-    console.log(`Admin server running on http://localhost:${PORT}`);
+  return app;
+}
+
+async function start({ port = PORT } = {}) {
+  const db = await getDb();
+  const app = createApp({ db });
+  const server = app.listen(port, () => {
+    console.log(`Admin server running on http://localhost:${port}`);
+  });
+  return { app, db, server };
+}
+
+if (require.main === module) {
+  start().catch((err) => {
+    console.error('Failed to start admin-server:', err);
+    process.exit(1);
   });
 }
 
-start().catch((err) => {
-  console.error('Failed to start admin-server:', err);
-  process.exit(1);
-});
+module.exports = {
+  createApp,
+  normalizeStatus,
+  parseCorsOrigins,
+  start,
+};

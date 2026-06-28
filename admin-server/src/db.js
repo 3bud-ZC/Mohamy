@@ -1,15 +1,15 @@
-﻿const path = require('path');
+const path = require('path');
 const bcrypt = require('bcrypt');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, '..', 'data', 'admin.db');
 
-function resolveBootstrapAdmin() {
-  const username = (process.env.ADMIN_BOOTSTRAP_USERNAME || 'admin').trim();
-  const password = (process.env.ADMIN_BOOTSTRAP_PASSWORD || 'ChangeMe123!').trim();
+function resolveBootstrapAdmin(env = process.env) {
+  const username = (env.ADMIN_BOOTSTRAP_USERNAME || 'admin').trim();
+  const password = (env.ADMIN_BOOTSTRAP_PASSWORD || 'ChangeMe123!').trim();
 
-  if (process.env.NODE_ENV === 'production') {
+  if (env.NODE_ENV === 'production') {
     if (!username) {
       throw new Error('ADMIN_BOOTSTRAP_USERNAME cannot be empty in production.');
     }
@@ -88,4 +88,4 @@ async function getDb() {
   return db;
 }
 
-module.exports = { getDb };
+module.exports = { getDb, resolveBootstrapAdmin };
