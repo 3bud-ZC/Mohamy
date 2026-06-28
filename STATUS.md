@@ -43,7 +43,7 @@
 - Confirmed the actual GitHub Actions signing secret names from the workflow and README without exposing values.
 - Evaluated the publish script behavior against the current version state and confirmed it should not be used in this run.
 - Created stabilization commit `3140c72` with the validated admin-server, Android test, docs, and status changes.
-- Created follow-up status refresh commit `9108274` so the single root status file reflects the post-commit release blocker state.
+- Created follow-up status-only commits so the single root status file stays aligned with the post-commit release blocker state.
 - Updated this root `STATUS.md` with the clean-worktree/signing-readiness blocker analysis for release preparation.
 
 ## Current Risks
@@ -104,4 +104,4 @@
 - Do not update `update/latest.json` until `v1.8.0` exists publicly and the APK asset URL is verified.
 - Do not include `.reporadar/`, local secrets, build outputs, or APK artifacts in the stabilization commit.
 - Prefer a manual tag-from-clean-main route only after CI signing secrets are confirmed; the current publish script is not the safe route from this repo state.
-- Current local git state after the stabilization and status-refresh commits: `main` is ahead of `origin/main` by 2 commits, and `.reporadar/` is still untracked.
+- Current local git state: `main` has local commits not yet pushed to `origin/main`, and `.reporadar/` is still untracked.
