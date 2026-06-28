@@ -1,8 +1,8 @@
 {
-  "versionCode": 11,
-  "versionName": "1.7.1",
-  "title": "Mohamy Phone 1.7.1",
-  "notes": "# Mohamy Phone 1.7.1\n\nTag: `v1.7.1`\n\n- Fix Smart Assistant Intent matching and Date parsing bugs\n- feat: Add Smart Assistant Phase 2 capabilities (Client Update, Task Add, Status, Fees)\n- checkout: temporary commit for worktree checkout\n- feat: Fix Date formatting, improve Smart Assistant, update UI\n- Update release manifest for v1.5.1",
-  "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.7.1/app-release.apk",
-  "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.7.1"
+  "versionCode": 12,
+  "versionName": "1.8.0",
+  "title": "Mohamy Phone 1.8.0",
+  "notes": "# Mohamy Phone 1.8.0\n\nTag: `v1.8.0`\n\n- chore: finalize lawyer demo polish\n- docs: stabilize status wording\n- docs: sync status with repo state\n- docs: refresh release blocker status\n- chore: stabilize admin server and release readiness\n- Fix compile errors and test failures\n- v1.8.0: Business Ready Edition\n- Update release manifest for v1.7.1",
+  "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.8.0/app-release.apk",
+  "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.8.0"
 }
