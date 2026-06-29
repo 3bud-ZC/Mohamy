@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Card
@@ -33,16 +34,23 @@ fun Modifier.legalScreenBackground(): Modifier =
     )
 
 @Composable
-fun Modifier.mohamyHeroBackground(): Modifier =
-    this.background(
+fun Modifier.mohamyHeroBackground(): Modifier {
+    val dark = isSystemInDarkTheme()
+    return this.background(
         Brush.verticalGradient(
-            colors = listOf(
-                MohamyBlackSoft,
-                MohamySurfaceRaised,
-                MaterialTheme.colorScheme.background
-            )
+            colors =
+                if (dark) {
+                    listOf(MohamyBlackSoft, MohamySurfaceRaised, MaterialTheme.colorScheme.background)
+                } else {
+                    listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.background
+                    )
+                }
         )
     )
+}
 
 @Composable
 fun ScreenSectionCard(
@@ -50,12 +58,13 @@ fun ScreenSectionCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val dark = isSystemInDarkTheme()
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(MohamyDimens.cardRadius),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.6f else 0.85f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (dark) 6.dp else 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(

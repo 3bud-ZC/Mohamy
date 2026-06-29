@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,12 +27,13 @@ fun MohamyCard(
   contentPadding: PaddingValues = PaddingValues(20.dp),
   content: @Composable ColumnScope.() -> Unit,
 ) {
+  val dark = isSystemInDarkTheme()
   Card(
     modifier = modifier,
     shape = RoundedCornerShape(MohamyDimens.cardRadius),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
-    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.82f else 0.95f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = if (dark) 6.dp else 2.dp)
   ) {
     Column(modifier = Modifier.padding(contentPadding)) {
       if (title != null) {

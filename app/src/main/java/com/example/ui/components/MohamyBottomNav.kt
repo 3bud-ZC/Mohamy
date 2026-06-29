@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
+import com.example.ui.theme.MohamyGoldBright
 
 data class MohamyBottomNavItem(
   val label: String,
@@ -33,16 +35,17 @@ fun MohamyBottomNav(
   items: List<MohamyBottomNavItem>,
   modifier: Modifier = Modifier,
 ) {
+  val dark = isSystemInDarkTheme()
   Box(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
     Surface(
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(28.dp),
       color = MaterialTheme.colorScheme.surface,
       tonalElevation = 0.dp,
-      shadowElevation = 8.dp,
+      shadowElevation = if (dark) 8.dp else 3.dp,
       border = androidx.compose.foundation.BorderStroke(
         1.dp,
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.82f else 0.95f)
       )
     ) {
       NavigationBar(
@@ -65,7 +68,7 @@ fun MohamyBottomNav(
             alwaysShowLabel = true,
             colors =
               NavigationBarItemDefaults.colors(
-                selectedIconColor = MohamyGold,
+                selectedIconColor = if (dark) MohamyGoldBright else MohamyGold,
                 selectedTextColor = MaterialTheme.colorScheme.onSurface,
                 indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,

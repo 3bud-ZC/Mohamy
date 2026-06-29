@@ -3,6 +3,7 @@ package com.example.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,9 @@ fun QuickActionTile(
   accent: Color = MohamyGold,
   onClick: () -> Unit,
 ) {
+  val dark = isSystemInDarkTheme()
+  val accentAlpha = if (dark) 0.14f else 0.18f
+  val accentBorderAlpha = if (dark) 0.3f else 0.45f
   Box(
     modifier =
       modifier
@@ -44,7 +48,7 @@ fun QuickActionTile(
         .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(22.dp))
         .border(
           1.dp,
-          MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f),
+          MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.82f else 0.95f),
           RoundedCornerShape(22.dp)
         )
         .clickable(onClick = onClick)
@@ -58,8 +62,8 @@ fun QuickActionTile(
         modifier =
           Modifier
             .size(38.dp)
-            .background(accent.copy(alpha = 0.14f), RoundedCornerShape(14.dp))
-            .border(1.dp, accent.copy(alpha = 0.3f), RoundedCornerShape(14.dp)),
+            .background(accent.copy(alpha = accentAlpha), RoundedCornerShape(14.dp))
+            .border(1.dp, accent.copy(alpha = accentBorderAlpha), RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center
       ) {
         Icon(imageVector = icon, contentDescription = null, tint = accent)

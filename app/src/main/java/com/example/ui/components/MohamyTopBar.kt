@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,18 @@ fun MohamyTopBar(
   onBackClick: (() -> Unit)? = null,
   actions: List<MohamyTopBarAction> = emptyList(),
 ) {
+  val dark = isSystemInDarkTheme()
+  val backgroundBrush =
+    if (dark) {
+      Brush.verticalGradient(colors = listOf(MohamyCharcoal, MaterialTheme.colorScheme.surface))
+    } else {
+      Brush.verticalGradient(
+        colors = listOf(
+          MaterialTheme.colorScheme.surface,
+          MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        )
+      )
+    }
   Box(
     modifier =
       modifier
@@ -55,8 +68,8 @@ fun MohamyTopBar(
         .statusBarsPadding()
         .padding(horizontal = MohamyDimens.screenHorizontal, vertical = 10.dp)
         .clip(RoundedCornerShape(28.dp))
-        .background(Brush.verticalGradient(colors = listOf(MohamyCharcoal, MaterialTheme.colorScheme.surface)))
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f), RoundedCornerShape(28.dp))
+        .background(backgroundBrush)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.72f else 0.9f), RoundedCornerShape(28.dp))
         .padding(horizontal = 16.dp, vertical = 14.dp)
   ) {
     Row(

@@ -47,8 +47,6 @@ import com.example.ui.components.MohamyBottomNavItem
 import com.example.ui.components.MohamyTopBar
 import com.example.ui.components.MohamyTopBarAction
 import com.example.ui.theme.LegalGoldSecondary
-import com.example.ui.theme.LegalNavyPrimary
-import com.example.ui.theme.LegalGoldLight
 import com.example.ui.theme.legalScreenBackground
 import java.io.File
 import java.text.SimpleDateFormat
@@ -454,7 +452,7 @@ fun MainLayout(viewModel: AppViewModel) {
                                     "تأكيد استيراد وأرشفة مستند 📄",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
-                                    color = LegalNavyPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             },
                             text = {
@@ -467,7 +465,7 @@ fun MainLayout(viewModel: AppViewModel) {
                                     Text(
                                         text = "سيتم نسخ هذا الملف بخصوصية تامة داخل المساحة الآمنة للتطبيق على هاتفك وربطه بملف القضية والعميل.",
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     
                                     Card(
@@ -475,13 +473,13 @@ fun MainLayout(viewModel: AppViewModel) {
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
                                         Column(modifier = Modifier.padding(12.dp)) {
-                                            Text("اسم الملف الأصلي:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = LegalNavyPrimary)
+                                            Text("اسم الملف الأصلي:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                                             Text(pendingImportName, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             Spacer(modifier = Modifier.height(4.dp))
-                                            Text("الحجم على القرص:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = LegalNavyPrimary)
+                                            Text("الحجم على القرص:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                                             Text(formatFileSize(pendingImportSize), fontSize = 12.sp)
                                             Spacer(modifier = Modifier.height(4.dp))
-                                            Text("ارتباط بالقضية:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = LegalNavyPrimary)
+                                            Text("ارتباط بالقضية:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                                             Text(caseObj.title, fontSize = 12.sp)
                                         }
                                     }
@@ -590,7 +588,7 @@ fun MainLayout(viewModel: AppViewModel) {
                                         sessionDropdownExpanded = false
                                         showImportDialog = false
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     enabled = pendingImportType != "أخرى" || pendingImportCustomType.isNotBlank()
                                 ) {
                                     Text("أرشفة وتأكيد")
@@ -602,7 +600,7 @@ fun MainLayout(viewModel: AppViewModel) {
                                     sessionDropdownExpanded = false
                                     showImportDialog = false
                                 }) {
-                                    Text("إلغاء", color = Color.Gray)
+                                    Text("إلغاء", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         )

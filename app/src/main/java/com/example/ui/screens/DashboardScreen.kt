@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,7 +69,10 @@ import com.example.ui.theme.MohamyDanger
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
 import com.example.ui.theme.MohamyGoldBright
+import com.example.ui.theme.MohamyGoldStrong
 import com.example.ui.theme.MohamyInfo
+import com.example.ui.theme.MohamyLightHero
+import com.example.ui.theme.MohamyLightHeroEnd
 import com.example.ui.theme.MohamySuccess
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.legalScreenBackground
@@ -432,18 +436,28 @@ private fun DashboardHeroCard(
   onPrimaryClick: () -> Unit,
   onSecondaryClick: () -> Unit,
 ) {
+  val dark = isSystemInDarkTheme()
+  val heroGradient =
+    if (dark) {
+      Brush.linearGradient(
+        colors = listOf(
+          MaterialTheme.colorScheme.surfaceVariant,
+          MaterialTheme.colorScheme.surface,
+          MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+        )
+      )
+    } else {
+      Brush.linearGradient(
+        colors = listOf(MohamyLightHero, MohamyLightHeroEnd, MohamyLightHeroEnd.copy(alpha = 0.7f))
+      )
+    }
+  val watermarkAlpha = if (dark) 0.13f else 0.22f
   MohamyCard(contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp)) {
     Box(
       modifier =
         Modifier.fillMaxWidth()
           .background(
-            Brush.linearGradient(
-              colors = listOf(
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.surface,
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
-              )
-            ),
+            heroGradient,
             androidx.compose.foundation.shape.RoundedCornerShape(MohamyDimens.largeCardRadius)
           )
           .padding(22.dp)
@@ -451,7 +465,7 @@ private fun DashboardHeroCard(
       Icon(
         imageVector = Icons.Default.AccountBalance,
         contentDescription = null,
-        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+        tint = MohamyGoldStrong.copy(alpha = watermarkAlpha),
         modifier = Modifier.size(116.dp).align(Alignment.BottomEnd)
       )
       Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
@@ -533,6 +547,7 @@ private fun DashboardPill(text: String, icon: ImageVector, modifier: Modifier = 
 
 @Composable
 private fun DashboardStatCard(stat: DashboardStat, modifier: Modifier = Modifier) {
+  val dark = isSystemInDarkTheme()
   MohamyCard(modifier = modifier.aspectRatio(1.06f)) {
     Column(
       verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -541,7 +556,7 @@ private fun DashboardStatCard(stat: DashboardStat, modifier: Modifier = Modifier
       Box(
         modifier =
           Modifier.size(MohamyDimens.iconContainer)
-            .background(stat.accent.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape),
+            .background(stat.accent.copy(alpha = if (dark) 0.14f else 0.18f), androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
       ) {
         Icon(stat.icon, contentDescription = null, tint = stat.accent)
@@ -572,6 +587,7 @@ private fun DashboardInfoCard(
   badgeTone: MohamyBadgeTone,
   onClick: () -> Unit,
 ) {
+  val dark = isSystemInDarkTheme()
   MohamyCard(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -581,7 +597,7 @@ private fun DashboardInfoCard(
       Box(
         modifier =
           Modifier.size(MohamyDimens.iconContainer)
-            .background(accent.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape),
+            .background(accent.copy(alpha = if (dark) 0.14f else 0.18f), androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
       ) {
         Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))

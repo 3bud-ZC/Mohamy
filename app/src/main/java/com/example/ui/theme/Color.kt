@@ -26,6 +26,20 @@ val MohamySuccessSoft = Color(0xFFDDF7EA)
 val MohamyInfo = Color(0xFF2A5E83)
 val MohamyInfoSoft = Color(0xFFDCEEFE)
 
+// Premium light-mode palette helpers.
+val MohamyLightBackground = Color(0xFFFBF6EC) // warm ivory app background
+val MohamyLightSurface = Color(0xFFFFFDF8)    // clean card surface
+val MohamyLightSurfaceAlt = Color(0xFFF7F1E6) // subtle alternate card
+val MohamyLightHero = Color(0xFFF5EED8)       // gold-tinted hero/welcome card
+val MohamyLightHeroEnd = Color(0xFFFFF6E0)    // light gold hero fade
+val MohamyInkBlack = Color(0xFF121212)        // primary light-mode text
+val MohamyInkDark = Color(0xFF1F1B17)         // headings on light surfaces
+val MohamyTextBrown = Color(0xFF4A4035)         // secondary text (dark gray-brown)
+val MohamyTextBrownSoft = Color(0xFF6B5E4E)   // tertiary/muted text
+val MohamyGoldStrong = Color(0xFF8F6A1E)      // deep gold for strong accents on light
+val MohamyBorderGold = Color(0xFFE8DCC5)      // soft beige border
+val MohamyBorderGoldDark = Color(0xFFD4C4A5)  // slightly stronger border
+
 // Backward-compatible aliases used across the existing app.
 val LegalNavyPrimary = MohamySurfaceRaised
 val LegalGoldSecondary = MohamyGold

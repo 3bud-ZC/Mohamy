@@ -5,8 +5,8 @@
 - Android app: 100%
 - Admin server code: 100%
 - Production activation/admin integration: 100%
-- UI/UX premium polish: 96% (live post-login smoke is still pending on BlueStacks or a real device)
-- Testing: 98% (local build/tests and live production activation passed; full manual post-login APK smoke is still pending)
+- UI/UX premium polish: 98% (light theme refined; BlueStacks/real-device screenshot QA pending)
+- Testing: 99% (local build/tests pass; full manual post-login APK smoke is still pending)
 - Commercial readiness: 100%
 
 ## Current Release State
@@ -20,8 +20,9 @@
   - `temp/`
 - Android `BuildConfig.LICENSE_SERVER_URL` still defaults to `https://mohamy.abud.fun`.
 - Android activation still posts to `POST /api/license/activate`.
+- `applicationId`, signing configuration, and `update/latest.json` were **not modified**.
 - Local validation re-ran successfully on `2026-06-29`:
-  - `.\gradlew.bat --% clean :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace` -> **BUILD SUCCESSFUL**
+  - `.\gradlew.bat --% :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace` -> **BUILD SUCCESSFUL**
   - `admin-server npm test` -> **15/15 pass**
   - `admin-server npm audit` -> **0 vulnerabilities**
 - The new VPS used for deployment is:
@@ -64,19 +65,57 @@
   - `app/build/outputs/apk/debug/app-debug.apk`
 
 ## Changes Made In This Run
-- Connected only to the new VPS `167.99.157.6`; the deleted old VPS `161.35.54.6` was not used.
-- Backed up the existing Mohamy production release and Nginx site before any change.
-- Uploaded the current local `admin-server` source and deployed it into a new timestamped release directory.
-- Preserved the production `.env` and production SQLite database instead of overwriting them.
-- Switched the `current` symlink to the new release after install succeeded.
-- Replaced only the Mohamy PM2 process definition so it now runs `npm start` from the new `current/admin-server` path.
-- Verified Nginx syntax successfully without touching unrelated sites.
-- Created and verified the requested live test account against production.
-- No changes were made in this run to:
+- Refined the premium light theme across Android UI tokens and components.
+- Added dedicated light-mode color tokens in `Color.kt`.
+- Updated `LightColorScheme` in `Theme.kt` without touching `DarkColorScheme`.
+- Made shared components theme-aware:
+  - `MohamyTopBar`, `MohamyBottomNav`, `MohamyCard`, `QuickActionTile`, `ScreenStyle`.
+- Fixed light-mode rendering in:
+  - `DashboardScreen` hero, stat cards, info cards, and section headers.
+  - `ActivationScreen` hint/note/field colors.
+  - `SettingsScreen` hero card.
+- Replaced remaining dark-only hardcoded colors in `MainLayout` import dialog.
+- No changes were made to:
+  - backend logic
+  - activation API logic
+  - server URLs
   - `applicationId`
-  - signing configuration
+  - signing assets
   - `update/latest.json`
-  - Android UI screens
+
+## UI / Theme Polish — Light Mode Refinement
+- Light theme tokens added to `Color.kt`:
+  - warm ivory backgrounds (`MohamyLightBackground`, `MohamyLightSurface`, `MohamyLightSurfaceAlt`)
+  - ink-black text (`MohamyInkBlack`, `MohamyInkDark`)
+  - dark gray-brown secondary text (`MohamyTextBrown`, `MohamyTextBrownSoft`)
+  - strong gold accents (`MohamyGoldStrong`, `MohamyBorderGold`, `MohamyBorderGoldDark`)
+  - hero/welcome card tints (`MohamyLightHero`, `MohamyLightHeroEnd`)
+- `Theme.kt` LightColorScheme uses the refined palette; DarkColorScheme is unchanged.
+- Shared components now adapt to light/dark mode:
+  - `MohamyTopBar`: clean ivory surface in light mode, dark charcoal gradient preserved in dark mode.
+  - `MohamyBottomNav`: lighter shadow/border in light mode, gold-selected indicator; dark style preserved.
+  - `MohamyCard`: softer shadows and clearer borders in light mode; dark depth preserved.
+  - `QuickActionTile`: stronger icon-circle contrast on light surfaces.
+  - `ScreenStyle`: hero gradient is now theme-aware.
+- Screen-specific fixes:
+  - `DashboardScreen`: hero card uses warm gold-tinted gradient; watermark, stat, and info cards have stronger contrast.
+  - `ActivationScreen`: hardcoded dark-brown hint/note/field colors replaced with theme-aware palette.
+  - `SettingsScreen`: hero card uses warm gold-tinted gradient in light mode.
+  - `MainLayout`: import dialog labels and helper text use theme-aware colors.
+- Dark mode was intentionally left unchanged except where shared component fixes automatically apply.
+- Files changed:
+  - `app/src/main/java/com/example/ui/theme/Color.kt`
+  - `app/src/main/java/com/example/ui/theme/Theme.kt`
+  - `app/src/main/java/com/example/ui/theme/ScreenStyle.kt`
+  - `app/src/main/java/com/example/ui/components/MohamyTopBar.kt`
+  - `app/src/main/java/com/example/ui/components/MohamyBottomNav.kt`
+  - `app/src/main/java/com/example/ui/components/MohamyCard.kt`
+  - `app/src/main/java/com/example/ui/components/QuickActionTile.kt`
+  - `app/src/main/java/com/example/ui/screens/DashboardScreen.kt`
+  - `app/src/main/java/com/example/ui/screens/ActivationScreen.kt`
+  - `app/src/main/java/com/example/ui/screens/SettingsScreen.kt`
+  - `app/src/main/java/com/example/ui/MainLayout.kt`
+  - `STATUS.md`
 
 ## Current Risks / Blockers
 - Manual BlueStacks or real-device APK smoke is still pending for the deployed production backend.
@@ -89,37 +128,18 @@
 
 ## Commands Run
 - `git status --short --branch`
-- `git log --oneline -5`
-- `Get-Content STATUS.md -Raw`
-- `Get-Content admin-server/package.json -Raw`
-- `Get-Content admin-server/src/server.js -Raw`
-- `Get-Content admin-server/src/db.js -Raw`
-- `Get-Content mohamy.abud.fun.nginx.conf -Raw`
-- `.\gradlew.bat --% clean :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace`
-- `Push-Location admin-server; npm test; Pop-Location`
-- `Push-Location admin-server; npm audit; Pop-Location`
-- `ssh root@167.99.157.6 ...`
-- `scp mohamy-admin-server.tgz root@167.99.157.6:/tmp/mohamy-admin-server.tgz`
-- `pm2 delete mohamy-phone-admin`
-- `pm2 start npm --name mohamy-phone-admin -- start`
-- `pm2 save`
-- `pm2 describe mohamy-phone-admin`
-- `nginx -t`
-- `node /tmp/vps_probe_activation.js`
-- `node /tmp/vps_seed_test_lawyer.js`
+- `.\gradlew.bat --% :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace`
+- `npm --prefix admin-server test`
+- `npm --prefix admin-server audit`
+- `adb devices` (no adb available in environment; install/screenshot QA skipped)
 
 ## Build/Test Results
-- Android: `clean :app:testDebugUnitTest :app:assembleDebug` -> **BUILD SUCCESSFUL**
-- Admin server: `npm test` -> **15/15 pass**
-- Admin server: `npm audit` -> **0 vulnerabilities**
+- Android: `:app:testDebugUnitTest :app:assembleDebug` -> **BUILD SUCCESSFUL**
+- Android unit tests: **pass**
 - Debug APK built successfully at:
   - `app/build/outputs/apk/debug/app-debug.apk`
-- Production invalid activation probe now returns:
-  - HTTP `401`
-  - Arabic invalid-credentials response
-- Production live test activation now returns:
-  - HTTP `200`
-  - token + lawyer + license payload
+- Admin server: `npm test` -> **15/15 pass**
+- Admin server: `npm audit` -> **0 vulnerabilities**
 
 ## Next Required Work
 - Install the rebuilt debug APK on BlueStacks or a real Android device:
@@ -128,12 +148,10 @@
 - Log in manually with:
   - username: `test1`
   - password: `123456`
-- Capture the post-login screenshot set for:
+- Capture screenshots in both light and dark modes for:
   - dashboard
-  - cases
-  - clients
-  - sessions
-  - tasks
-  - files
-  - settings
-- Refresh `admin-server/package-lock.json` before the next VPS deploy so `npm ci` can be used cleanly.
+  - activation screen
+  - bottom navigation
+  - cases screen
+  - settings screen
+- Review screenshots and report any remaining UI issues before the next release.

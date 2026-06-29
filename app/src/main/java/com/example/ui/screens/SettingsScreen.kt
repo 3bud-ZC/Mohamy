@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,6 +88,9 @@ import com.example.ui.theme.MohamyBlackSoft
 import com.example.ui.theme.MohamyCharcoalSoft
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
+import com.example.ui.theme.MohamyGoldStrong
+import com.example.ui.theme.MohamyLightHero
+import com.example.ui.theme.MohamyLightHeroEnd
 import com.example.ui.theme.legalScreenBackground
 
 @Composable
@@ -639,20 +643,27 @@ private fun SettingsHeroCard(
     phone: String,
     statusLabel: String
 ) {
+    val dark = isSystemInDarkTheme()
+    val heroGradient =
+        if (dark) {
+            Brush.verticalGradient(
+                listOf(MohamyBlackSoft, MohamyCharcoalSoft, MaterialTheme.colorScheme.surface)
+            )
+        } else {
+            Brush.verticalGradient(
+                listOf(MohamyLightHero, MohamyLightHeroEnd, MaterialTheme.colorScheme.surface)
+            )
+        }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(MohamyDimens.largeCardRadius),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (dark) 12.dp else 3.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MohamyBlackSoft, MohamyCharcoalSoft, MaterialTheme.colorScheme.surface)
-                    )
-                )
+                .background(heroGradient)
                 .padding(20.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {

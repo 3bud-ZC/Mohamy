@@ -2,69 +2,95 @@
 
 ## Scope
 - Repository: `C:\Users\Abud\Desktop\GitHub\MohamyPhone`
-- Goal: finish a professional Compose-only UI/UX polish pass for MohamyPhone without touching signing, `applicationId`, backend logic, or `update/latest.json`.
+- Goal: create a proper professional Light Theme polish while preserving the existing successful Dark Theme.
 - Focus areas:
-  - theme tokens
-  - shared legal shell components
+  - theme tokens and color scheme
+  - shared components (top bar, bottom nav, cards, tiles, buttons, search, badges)
   - dashboard presentation
-  - activation readability and trust messaging
+  - activation readability
+  - settings consistency
+- Strict rules followed:
+  - no backend logic changes
+  - no activation API changes
+  - no server URL changes
+  - no `applicationId` changes
+  - no signing changes
+  - no `update/latest.json` changes
+  - no tag or release created
 
-## Files Verified In This QA Pass
+## Files Changed In This QA Pass
 - `app/src/main/java/com/example/ui/theme/Color.kt`
 - `app/src/main/java/com/example/ui/theme/Theme.kt`
-- `app/src/main/java/com/example/ui/theme/Type.kt`
-- `app/src/main/java/com/example/ui/theme/DesignTokens.kt`
 - `app/src/main/java/com/example/ui/theme/ScreenStyle.kt`
-- `app/src/main/java/com/example/ui/MainLayout.kt`
-- `app/src/main/java/com/example/ui/components/MohamyCard.kt`
-- `app/src/main/java/com/example/ui/components/MohamyButton.kt`
-- `app/src/main/java/com/example/ui/components/MohamyStatusBadge.kt`
-- `app/src/main/java/com/example/ui/components/MohamySearchBar.kt`
-- `app/src/main/java/com/example/ui/components/MohamyEmptyState.kt`
-- `app/src/main/java/com/example/ui/components/MohamyBottomNav.kt`
 - `app/src/main/java/com/example/ui/components/MohamyTopBar.kt`
+- `app/src/main/java/com/example/ui/components/MohamyBottomNav.kt`
+- `app/src/main/java/com/example/ui/components/MohamyCard.kt`
 - `app/src/main/java/com/example/ui/components/QuickActionTile.kt`
-- `app/src/main/java/com/example/ui/components/SettingsSection.kt`
-- `app/src/main/java/com/example/ui/components/SettingsActionRow.kt`
-- `app/src/main/java/com/example/ui/screens/ActivationScreen.kt`
 - `app/src/main/java/com/example/ui/screens/DashboardScreen.kt`
+- `app/src/main/java/com/example/ui/screens/ActivationScreen.kt`
+- `app/src/main/java/com/example/ui/screens/SettingsScreen.kt`
+- `app/src/main/java/com/example/ui/MainLayout.kt`
 
-## Build / Install Validation
-- `Push-Location admin-server; npm test; npm audit; Pop-Location`
-  - `npm test` -> pass (`15/15`)
-  - `npm audit` -> pass (`0 vulnerabilities`)
+## Light Mode Changes
+- **Background**: warm ivory (`MohamyLightBackground`) instead of overly white.
+- **Surface**: clean ivory card surface (`MohamyLightSurface`) with soft gold borders (`MohamyBorderGold`).
+- **Text**: ink-black headings (`MohamyInkBlack`) and dark gray-brown secondary text (`MohamyTextBrown`).
+- **Hero cards**: warm gold-tinted gradient (`MohamyLightHero` → `MohamyLightHeroEnd`) instead of heavy black blocks.
+- **Top bar**: clean ivory surface with subtle border; no harsh dark gradient.
+- **Bottom nav**: ivory surface with subtle shadow and clear gold-selected indicator; no full black bar.
+- **Cards**: softer shadows, clearer borders, better hierarchy.
+- **Gold accents**: stronger deep gold (`MohamyGoldStrong`) for good contrast on light surfaces.
+- **Activation**: hardcoded dark-brown hint/note/field backgrounds replaced with theme-aware light palette; readable labels and strong borders.
+- **Settings**: hero card uses warm gold-tinted gradient in light mode.
+
+## Dark Mode Preservation
+- `DarkColorScheme` in `Theme.kt` was intentionally not changed.
+- All shared components branch on `isSystemInDarkTheme()` and keep the existing dark premium look:
+  - dark charcoal top bar gradient
+  - dark bottom nav surface
+  - deeper card shadows
+  - dark hero gradients
+- Only adjustments that are required by shared component fixes apply to dark mode.
+
+## Build / Test Validation
+- `npm --prefix admin-server test`
+  - result: **15/15 pass**
+- `npm --prefix admin-server audit`
+  - result: **0 vulnerabilities**
 - `.\gradlew.bat --% :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace`
   - result: **BUILD SUCCESSFUL**
-- APK install:
-  - `adb install -r app/build/outputs/apk/debug/app-debug.apk`
-  - result: `Success`
+- Debug APK built successfully at:
+  - `app/build/outputs/apk/debug/app-debug.apk`
 
-## Emulator Session
-- Device seen by `adb devices -l`:
-  - `emulator-5554 device product:sdk_gphone16k_x86_64 model:sdk_gphone16k_x86_64 device:emu64xa16k`
-- Launch command:
-  - `adb shell monkey -p com.aistudio.mohamyphone.lylawar -c android.intent.category.LAUNCHER 1`
-- Captured artifacts from the rebuilt APK:
-  - screenshot: `docs/qa/emulator/ui-polish-2026-06-29-final.png`
-  - hierarchy: `docs/qa/emulator/ui-polish-2026-06-29-final.xml`
+## Emulator / Screenshot Session
+- `adb` is not available in this environment, so live install and screenshot capture were skipped.
+- Screenshot targets for user retest:
+  - Light mode dashboard
+  - Dark mode dashboard
+  - Light mode activation
+  - Dark mode activation
+  - Bottom nav in both modes
+  - Cases screen light mode
+  - Settings screen light mode
 
-## Visual Findings
-- Activation hero now reads as a cleaner premium legal surface instead of a rough placeholder screen.
-- Password guidance is explicit and no longer implies that the second field expects a `license key`.
-- Secondary copy on ivory cards was darkened after screenshot review so the body paragraph, field labels, and consent text remain readable.
-- Gold accent chips, borders, and icons stay on-brand without overpowering the screen.
-- Disabled CTA state looks intentional and consistent with the light premium surface while the required fields are empty.
-
-## What Was Not Fully Smoke-Tested Here
-- A live activation success path was not available in this QA pass because the deployed backend still returns `HTTP 500` for activation.
-- Because no valid activated session was available, the freshly redesigned post-login screens were verified in code/build but not re-navigated manually in this exact emulator session.
+## Visual Findings (code review)
+- Dashboard hero card is now a warm gold-tinted surface; no black hero block in light mode.
+- Top bar should be clean ivory with readable title and action icons.
+- Bottom nav should be a light floating bar with gold-selected indicator.
+- Card borders and shadows should be subtle and premium on light backgrounds.
+- Activation screen should no longer show excessive dark brown blocks in light mode.
+- Settings hero card should match the new light premium theme.
 
 ## Pass / Pending
-- Compose UI polish implementation: **PASS**
+- Light theme implementation: **PASS**
+- Dark theme preservation: **PASS**
 - Android build and APK generation: **PASS**
-- Emulator install and activation-screen capture: **PASS**
-- Live production activation: **PENDING / BLOCKED BY SERVER**
-- Fresh manual post-login navigation: **PENDING UNTIL VALID SESSION EXISTS**
+- Admin server tests/audit: **PASS**
+- Emulator install and screenshot capture: **PENDING** (`adb` not available)
+- User visual retest on BlueStacks/real device: **PENDING**
 
 ## Recommended Next QA Step
-- After backend redeploy or test-account seeding, install the same debug APK and capture a full visual walkthrough of dashboard, cases, clients, sessions, tasks, files, and settings.
+- Install the debug APK on BlueStacks or a real Android device:
+  - `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+- Capture screenshots in both light and dark modes for dashboard, activation, bottom nav, cases, and settings.
+- Report any remaining contrast or hierarchy issues before the next release.
