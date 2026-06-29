@@ -5,6 +5,98 @@ const sqlite3 = require('sqlite3');
 
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, '..', 'data', 'admin.db');
 
+async function getTableColumns(db, tableName) {
+  const rows = await db.all(`PRAGMA table_info(${tableName})`);
+  return rows.map((row) => row.name);
+}
+
+async function addColumnIfMissing(db, tableName, columnName, sqlDefinition) {
+  const columns = await getTableColumns(db, tableName);
+  if (columns.includes(columnName)) return;
+  await db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${sqlDefinition}`);
+}
+
+async function ensureCompatibilitySchema(db) {
+  await addColumnIfMissing(db, 'admins', 'created_at', 'TEXT');
+
+  await addColumnIfMissing(db, 'lawyers', 'phone', "TEXT DEFAULT ''");
+  await addColumnIfMissing(db, 'lawyers', 'password_hash', "TEXT DEFAULT ''");
+  await addColumnIfMissing(db, 'lawyers', 'status', "TEXT NOT NULL DEFAULT 'active'");
+  await addColumnIfMissing(db, 'lawyers', 'notes', "TEXT DEFAULT ''");
+  await addColumnIfMissing(db, 'lawyers', 'created_at', 'TEXT');
+  await addColumnIfMissing(db, 'lawyers', 'updated_at', 'TEXT');
+
+  await addColumnIfMissing(db, 'licenses', 'status', "TEXT NOT NULL DEFAULT 'active'");
+  await addColumnIfMissing(db, 'licenses', 'max_devices', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumnIfMissing(db, 'licenses', 'expires_at', 'TEXT');
+  await addColumnIfMissing(db, 'licenses', 'created_at', 'TEXT');
+  await addColumnIfMissing(db, 'licenses', 'updated_at', 'TEXT');
+
+  await addColumnIfMissing(db, 'devices', 'device_name', "TEXT DEFAULT ''");
+  await addColumnIfMissing(db, 'devices', 'platform', "TEXT DEFAULT ''");
+  await addColumnIfMissing(db, 'devices', 'app_version', "TEXT DEFAULT ''");
+  await addColumnIfMissing(db, 'devices', 'first_activated_at', 'TEXT');
+  await addColumnIfMissing(db, 'devices', 'last_check_at', 'TEXT');
+  await addColumnIfMissing(db, 'devices', 'status', "TEXT NOT NULL DEFAULT 'active'");
+
+  const lawyerColumns = await getTableColumns(db, 'lawyers');
+  if (lawyerColumns.includes('password')) {
+    const legacyRows = await db.all(
+      `SELECT id, password
+       FROM lawyers
+       WHERE COALESCE(password_hash, '') = ''
+         AND COALESCE(password, '') <> ''`
+    );
+    for (const row of legacyRows) {
+      const hash = await bcrypt.hash(String(row.password), 10);
+      await db.run(
+        `UPDATE lawyers
+         SET password_hash = ?, updated_at = datetime('now')
+         WHERE id = ?`,
+        hash,
+        row.id
+      );
+    }
+  }
+
+  await db.run(
+    `UPDATE lawyers
+     SET phone = COALESCE(phone, ''),
+         status = CASE
+           WHEN status IS NULL OR TRIM(status) = '' THEN 'active'
+           ELSE status
+         END,
+         notes = COALESCE(notes, ''),
+         created_at = COALESCE(created_at, datetime('now')),
+         updated_at = COALESCE(updated_at, datetime('now'))`
+  );
+
+  await db.run(
+    `UPDATE licenses
+     SET status = CASE
+       WHEN status IS NULL OR TRIM(status) = '' THEN 'active'
+       ELSE status
+     END,
+         max_devices = 1,
+         expires_at = NULL,
+         created_at = COALESCE(created_at, datetime('now')),
+         updated_at = COALESCE(updated_at, datetime('now'))`
+  );
+
+  await db.run(
+    `UPDATE devices
+     SET device_name = COALESCE(device_name, ''),
+         platform = COALESCE(platform, ''),
+         app_version = COALESCE(app_version, ''),
+         first_activated_at = COALESCE(first_activated_at, datetime('now')),
+         last_check_at = COALESCE(last_check_at, datetime('now')),
+         status = CASE
+           WHEN status IS NULL OR TRIM(status) = '' THEN 'active'
+           ELSE status
+         END`
+  );
+}
+
 function resolveBootstrapAdmin(env = process.env) {
   const username = (env.ADMIN_BOOTSTRAP_USERNAME || 'admin').trim();
   const password = (env.ADMIN_BOOTSTRAP_PASSWORD || 'ChangeMe123!').trim();
@@ -76,7 +168,7 @@ async function getDb() {
     );
   `);
 
-  await db.run('UPDATE licenses SET max_devices = 1, expires_at = NULL WHERE max_devices IS NULL OR max_devices <> 1 OR expires_at IS NOT NULL');
+  await ensureCompatibilitySchema(db);
 
   const bootstrapAdmin = resolveBootstrapAdmin();
   const admin = await db.get('SELECT id FROM admins WHERE username = ?', bootstrapAdmin.username);

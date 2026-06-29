@@ -1704,15 +1704,17 @@ class Repository(private val db: AppDatabase, private val context: Context) {
     suspend fun activateLicense(username: String, activationCode: String): Result<LicenseActivationPayload> {
         return withContext(Dispatchers.IO) {
             try {
-                if (username.isEmpty() || activationCode.isEmpty()) {
+                val identity = username.trim()
+                val password = activationCode.trim()
+                if (identity.isEmpty() || password.isEmpty()) {
                     return@withContext Result.failure(Exception("يرجى إدخال اسم المستخدم وكلمة المرور."))
                 }
 
                 val baseUrl = resolveLicenseServerBaseUrl()
                 val deviceId = currentDeviceId()
                 val payload = JSONObject().apply {
-                    put("username", username.trim())
-                    put("password", activationCode)
+                    put("username", identity)
+                    put("password", password)
                     put("device_id", deviceId)
                     put("device_name", Build.MODEL ?: "Android")
                     put("platform", "android")
@@ -1723,7 +1725,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                     val (statusCode, responseJson) = postJson("$baseUrl/api/license/activate", payload)
                     if (statusCode in 200..299 && responseJson != null) {
                         val activation = LicenseActivationPayload(
-                            username = username.trim(),
+                            username = identity,
                             token = responseJson.optString("token", ""),
                             expiresAt = responseJson.optString("expires_at").takeIf { it.isNotBlank() },
                             lawyerName = responseJson.optString("lawyer_name", "الأستاذ المحامي"),
@@ -1739,10 +1741,11 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                     return@withContext Result.failure(
                         Exception(
                             when (err) {
-                                "blocked" -> "تم إيقاف هذا الحساب من قبل المسؤول."
-                                "expired" -> "انتهت صلاحية الترخيص."
-                                "device_bound" -> "الحساب مرتبط بجهاز آخر."
-                                "inactive" -> "الحساب غير مفعل بعد."
+                                "invalid_credentials" -> "اسم المستخدم أو كلمة المرور غير صحيحة"
+                                "blocked", "inactive" -> "الحساب غير مفعل"
+                                "expired" -> "الترخيص منتهي"
+                                "device_bound", "device_limit_reached" -> "تم تجاوز عدد الأجهزة المسموح بها"
+                                "internal_server_error", "service_unavailable" -> "تعذر الوصول إلى سيرفر الترخيص"
                                 else -> responseJson?.optString("message", "تعذر تفعيل الحساب.")
                                     ?: "تعذر تفعيل الحساب."
                             }
@@ -1750,7 +1753,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                     )
                 } catch (networkError: Exception) {
                     // Development-safe fallback for local testing only in debug builds
-                    if (BuildConfig.DEBUG && username.trim() == "test" && activationCode.trim() == "123456") {
+                    if (BuildConfig.DEBUG && identity == "test" && password == "123456") {
                         val activation = LicenseActivationPayload(
                             username = "test",
                             token = "",
@@ -1763,7 +1766,7 @@ class Repository(private val db: AppDatabase, private val context: Context) {
                         )
                         return@withContext Result.success(activation)
                     }
-                    return@withContext Result.failure(Exception("فشلت عملية التفعيل بسبب تعذر الوصول لسيرفر الترخيص."))
+                    return@withContext Result.failure(Exception("تعذر الوصول إلى سيرفر الترخيص"))
                 }
             } catch (e: Exception) {
                 Result.failure(Exception(e.message ?: "فشلت عملية التفعيل."))

@@ -37,6 +37,26 @@ function normalizeStatus(input, allowed, fallback) {
   return value;
 }
 
+async function findLawyerByIdentity(db, rawIdentity) {
+  const identity = String(rawIdentity || '').trim();
+  if (!identity) return null;
+  return db.get(
+    `SELECT *
+     FROM lawyers
+     WHERE username = ? OR phone = ?
+     ORDER BY CASE
+       WHEN username = ? THEN 0
+       WHEN phone = ? THEN 1
+       ELSE 2
+     END
+     LIMIT 1`,
+    identity,
+    identity,
+    identity,
+    identity
+  );
+}
+
 function createApp({
   db,
   corsOrigins = process.env.CORS_ORIGINS,
@@ -315,21 +335,41 @@ function createApp({
       return res.status(400).json({ error: 'username_password_device_required' });
     }
 
-    const lawyer = await db.get('SELECT * FROM lawyers WHERE username = ?', String(username).trim());
+    const identity = String(username).trim();
+    const lawyer = await findLawyerByIdentity(db, identity);
     if (!lawyer) {
-      return res.status(401).json({ error: 'invalid_credentials', message: 'بيانات الدخول غير صحيحة.' });
+      return res.status(401).json({
+        error: 'invalid_credentials',
+        message: 'اسم المستخدم أو كلمة المرور غير صحيحة.',
+      });
     }
 
-    const passOk = await bcrypt.compare(String(password), lawyer.password_hash);
+    let passOk = false;
+    if (typeof lawyer.password_hash === 'string' && lawyer.password_hash.trim()) {
+      passOk = await bcrypt.compare(String(password), lawyer.password_hash);
+    } else if (typeof lawyer.password === 'string' && lawyer.password.length > 0) {
+      passOk = String(password) === lawyer.password;
+      if (passOk) {
+        const upgradedHash = await bcrypt.hash(String(password), 10);
+        await db.run(
+          "UPDATE lawyers SET password_hash = ?, updated_at = datetime('now') WHERE id = ?",
+          upgradedHash,
+          lawyer.id
+        );
+      }
+    }
     if (!passOk) {
-      return res.status(401).json({ error: 'invalid_credentials', message: 'بيانات الدخول غير صحيحة.' });
+      return res.status(401).json({
+        error: 'invalid_credentials',
+        message: 'اسم المستخدم أو كلمة المرور غير صحيحة.',
+      });
     }
 
     if (lawyer.status === 'blocked') {
-      return res.status(403).json({ error: 'blocked', message: 'الحساب موقوف من الإدارة.' });
+      return res.status(403).json({ error: 'blocked', message: 'الحساب غير مفعل.' });
     }
     if (lawyer.status === 'inactive') {
-      return res.status(403).json({ error: 'inactive', message: 'الحساب غير مفعل بعد.' });
+      return res.status(403).json({ error: 'inactive', message: 'الحساب غير مفعل.' });
     }
 
     const license = await db.get('SELECT * FROM licenses WHERE lawyer_id = ? ORDER BY id DESC LIMIT 1', lawyer.id);
@@ -338,13 +378,13 @@ function createApp({
     }
 
     if (license.status === 'blocked' || license.status === 'inactive') {
-      return res.status(403).json({ error: 'blocked', message: 'الترخيص موقوف.' });
+      return res.status(403).json({ error: 'inactive', message: 'الحساب غير مفعل.' });
     }
 
     if (license.expires_at) {
       const expired = new Date(license.expires_at).getTime() < Date.now();
       if (expired) {
-        return res.status(403).json({ error: 'expired', message: 'انتهت صلاحية الترخيص.' });
+        return res.status(403).json({ error: 'expired', message: 'الترخيص منتهي.' });
       }
     }
 
@@ -356,7 +396,10 @@ function createApp({
     const allActiveDevices = await db.all('SELECT * FROM devices WHERE license_id = ? AND status = ?', license.id, 'active');
 
     if (!currentDevice && allActiveDevices.length >= (license.max_devices || 1)) {
-      return res.status(409).json({ error: 'device_bound', message: 'الحساب مرتبط بجهاز آخر.' });
+      return res.status(409).json({
+        error: 'device_limit_reached',
+        message: 'تم تجاوز عدد الأجهزة المسموح بها.',
+      });
     }
 
     if (currentDevice) {

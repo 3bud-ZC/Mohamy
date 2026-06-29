@@ -652,11 +652,11 @@ fun MainLayout(viewModel: AppViewModel) {
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
                             .padding(horizontal = 16.dp, vertical = 24.dp),
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        containerColor = Color(0xFF8E2434),
+                        contentColor = Color(0xFFFFF4F6),
                         action = {
                             TextButton(onClick = { viewModel.globalErrorMsg = null }) {
-                                Text("إغلاق", color = MaterialTheme.colorScheme.error)
+                                Text("إغلاق", color = Color(0xFFFFD8DE))
                             }
                         }
                     ) {
