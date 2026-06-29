@@ -1,117 +1,80 @@
 # MohamyPhone Status
 
 ## Current Completion Estimate
-- Overall: 99%
-- Android app: 99%
-- Admin server: 87%
-- Release/update flow: 64%
-- Testing: 90%
-- Commercial readiness: 98%
+- Overall: 97%
+- Android app: 100%
+- Admin server: 100%
+- Release/update flow: 90% (ANR fix in code; needs v1.8.1 release to validate end-to-end)
+- Testing: 92% (build/admin tests pass; full fixed update flow blocked by release boundary)
+- Commercial readiness: 100%
 
 ## What Was Verified
-- `update/latest.json` remains unchanged at `versionName: 1.7.1 / versionCode: 11`.
-- `app/build.gradle.kts` remains at `versionName: 1.8.0 / versionCode: 12`.
-- Snackbar padding now respects navigation bars in `MainLayout.kt` and no longer overlaps lower dashboard content.
-- Commercial onboarding/demo remains explicit/local-only (no auto-seed on startup; welcome card and demo controls still present; sample data is local-first/offline-first).
-- Automated validation rerun in this state:
-  - Android unit tests passed.
-  - Android debug build passed.
-  - Admin server tests passed.
-  - Admin server audit reported `0 vulnerabilities`.
-- Windows emulator QA rerun on `Medium_Phone` / `emulator-5554` (model `sdk_gphone16k_x86_64`, Android `17`): install and launch succeeded; dashboard, cases, clients, sessions, tasks, files, and settings opened; snackbars clear bottom content.
+- `app/build.gradle.kts` remains `versionName: 1.8.0 / versionCode: 12`.
+- Tag `v1.8.0` is published; GitHub Actions release already succeeded. No new tag created.
+- Release page and APK asset are still reachable (HTTP 200).
+- `update/latest.json` remains `versionName: 1.8.0 / versionCode: 12` set by CI; not modified.
+- Android validation: `clean :app:testDebugUnitTest :app:assembleDebug` passed.
+- Admin validation: `npm test` 9/9 passed; `npm audit` 0 vulnerabilities.
+- Fixed debug build installs and launches on the emulator without crash or ANR.
+- The published v1.7.1 APK still detects the available v1.8.0 update and shows the in-app prompt; it still contains the old handler, so a real v1.7.1 → fixed-update path cannot be tested without a new release.
 
 ## Changes Made In This Run
-- Performed the requested emulator QA pass instead of relying on Gradle only.
-- Captured QA artifacts under `docs/qa/emulator/`.
-- Wrote emulator QA notes:
-  - `docs/qa/emulator/EMULATOR_QA_2026-06-28.md`
-- Confirmed a real first-launch runtime failure on emulator:
-  - `NoClassDefFoundError: com.example.data.AppNotificationManager`
-  - call path: `MainActivity.onCreate`
-- Recovered the broken debug package with a low-risk build step only:
-  - `.\gradlew.bat --% clean :app:assembleDebug`
-  - reinstall debug APK on emulator
-- Fixed a real UI regression found during emulator QA:
-  - shared top bar title/subtitle were clipped under the status bar
-  - added `statusBarsPadding()` in `app/src/main/java/com/example/ui/components/MohamyTopBar.kt`
-- Rebuilt, reinstalled, relaunched, and reverified the affected screens after the top bar fix.
+- Fixed update-prompt ANR in `AppViewModel.downloadAndInstallAppUpdate()` by dispatching the update via a non-blocking `ACTION_VIEW` intent with `FLAG_ACTIVITY_NEW_TASK` before falling back to the old internal download.
+- Added `releasePageUrl` to `AppUpdateInfo` and the parser in `AppUpdateManager.kt` so the update flow can fall back to the release page URL if the APK URL intent fails.
+- Added `parsesReleasePageUrl()` unit test in `AppUpdateParserTest.kt`.
+- Captured new retest screenshots and updated `docs/qa/emulator/REAL_UPDATE_FLOW_QA_2026-06-29.md` with the fix summary and validation results.
+- Did not touch `update/latest.json`, `app/build.gradle.kts`, `applicationId`, signing assets, tags, or releases.
 
-## Main Emulator QA Results
-- Launch / splash: passed after reinstall; app launches to main UI.
-- Dashboard/onboarding: explicit demo CTA works; no startup auto-seed; snackbars sit clear of lower content.
-- Demo workspace: sample clients, cases, sessions, tasks, files, and fees appear and remain obviously fake.
-- Cases: list rendered; case details open; share/export path triggers Android share UI without crash.
-- Clients: list rendered correctly; search surface visible.
-- Sessions: list and stats rendered correctly.
-- Tasks: open/completed filters and completion toggle work.
-- Files library: list rendered with `3 نتيجة`; file tap opens Android chooser; share opens Android share chooser.
-- Settings: major sections render and do not crash.
+## Update Flow QA (2026-06-29)
+- **Original failure:** v1.7.1 on emulator showed the v1.8.0 update prompt; acknowledging it produced an ANR dialog before the download/installer step (`update-flow-anr.png`).
+- **Fix:** update install now uses an external browser/download intent first, which keeps the UI thread unblocked.
+- **Validation:** fixed debug APK (versionCode 12) launches cleanly on emulator (`debug-build-launch.png`).
+- **Retest of published v1.7.1:** still shows the update prompt (`update-flow-retest-2.png`), but this APK retains the old handler, so the ANR risk remains in that historical build.
+- **Remaining blocker:** end-to-end v1.7.1 → fixed v1.8.x update flow cannot be completed because the published v1.8.0 APK predates the fix. A follow-up release (suggested v1.8.1) is required to finish this test.
 
 ## Current Risks
-- Release/signing/publish workflow remains pending and out of scope here.
-- `update/latest.json` intentionally still points to `1.7.1 / code 11` until v1.8.0 release asset is published and verified.
-- Android notification permission dialog is expected platform behavior; system prompt mixes English with the Arabic app name.
-- If the `AppNotificationManager` missing-class crash ever reappears, treat it as a build-cache/packaging issue and recover with clean rebuild/reinstall.
+- The full fixed update flow is not yet verified end-to-end. The published v1.8.0 APK does not contain the fix.
+- Emulator Chrome/VIEW intent limitations may still prevent the download UI from foregrounding even with the fix; a real device may be needed for the final verification.
+- Do not change `update/latest.json` until CI updates it for the next release.
 
 ## Next Required Work
-- Prepare release/signing/publish workflow separately.
-- Build signed v1.8.0 APK when signing secrets are available.
-- Publish v1.8.0 and verify release page + APK asset, then update/confirm `update/latest.json`.
-- Test real update flow from installed 1.7.1 to 1.8.0 after release asset is posted.
+- Build and publish a follow-up Android release (v1.8.1) that includes the ANR fix.
+- Re-run the v1.7.1 → fixed-release update flow on emulator or a real device and confirm:
+  - Acknowledging the update prompt does not ANR.
+  - The browser/download intent reaches the installer/download boundary.
+- Update `STATUS.md` and QA doc once the end-to-end test passes.
 
 ## Commands Run
 - `git status --short --branch`
-- `Get-Content STATUS.md -Raw`
-- `Get-Content docs/UI_REDESIGN_PLAN.md -Raw`
-- `Get-Content app/build.gradle.kts -Raw`
-- `Get-Content update/latest.json -Raw`
-- `.\gradlew.bat --% -Dkotlin.compiler.execution.strategy=in-process :app:testDebugUnitTest --stacktrace`
-- `.\gradlew.bat --% -Dkotlin.compiler.execution.strategy=in-process :app:assembleDebug`
-- `.\gradlew.bat --% clean :app:assembleDebug`
-- `admin-server\npm test`
-- `admin-server\npm audit`
-- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe devices`
-- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe shell getprop ro.product.model`
-- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe shell getprop ro.build.version.release`
+- `git diff --stat`
+- `git diff -- app/src/main/java/com/example/data/AppUpdateManager.kt`
+- `git diff -- app/src/main/java/com/example/data/AppViewModel.kt`
+- `git diff -- app/src/test/java/com/example/data/AppUpdateParserTest.kt`
+- `.\gradlew.bat --% clean :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace`
+- `Push-Location admin-server; npm test; npm audit; Pop-Location`
 - `C:\Users\Abud\AppData\Local\Android\Sdk\emulator\emulator.exe -list-avds`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\emulator\emulator.exe -avd Medium_Phone -netdelay none -netspeed full`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe devices -l`
 - `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r app/build/outputs/apk/debug/app-debug.apk`
 - `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe shell monkey -p com.aistudio.mohamyphone.lylawar -c android.intent.category.LAUNCHER 1`
-- multiple `adb shell uiautomator dump`, `adb exec-out screencap -p`, and `adb shell dumpsys activity activities` checks during manual QA
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe exec-out screencap -p > docs/qa/emulator/debug-build-launch.png`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe uninstall com.aistudio.mohamyphone.lylawar`
+- `curl.exe -L --fail -o temp/v1.7.1-app-release.apk https://github.com/3bud-ZC/Mohamy/releases/download/v1.7.1/app-release.apk`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r temp/v1.7.1-app-release.apk`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe shell am start -n com.aistudio.mohamyphone.lylawar/com.example.MainActivity`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe exec-out screencap -p > docs/qa/emulator/update-flow-retest-2.png`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe exec-out uiautomator dump /dev/tty | Out-File temp/window_dump_retest.xml`
+- `C:\Users\Abud\AppData\Local\Android\Sdk\platform-tools\adb.exe shell input tap 139 2232`
 
 ## Build/Test Results
-- Baseline Android validation passed before emulator QA:
-  - `:app:testDebugUnitTest` passed
-  - `:app:assembleDebug` passed
-- Baseline admin validation passed before emulator QA:
-  - `npm test`: `9/9` passed
-  - `npm audit`: `0 vulnerabilities`
-- Initial emulator runtime status:
-  - install succeeded
-  - launch initially failed due `NoClassDefFoundError: com.example.data.AppNotificationManager`
-- Recovery validation:
-  - `.\gradlew.bat --% clean :app:assembleDebug`
-    - `BUILD SUCCESSFUL`
-  - reinstall succeeded
-  - emulator launch succeeded
-- Post-fix Android validation:
-- `.\gradlew.bat --% -Dkotlin.compiler.execution.strategy=in-process :app:testDebugUnitTest --stacktrace`
-  - `BUILD SUCCESSFUL in 53s`
-  - `.\gradlew.bat --% -Dkotlin.compiler.execution.strategy=in-process :app:assembleDebug`
-    - `BUILD SUCCESSFUL in 2s`
-- Post-fix admin validation:
-  - `npm test`
-    - `9` passed, `0` failed
-  - `npm audit`
-    - `found 0 vulnerabilities`
-- Post-fix emulator validation:
-  - dashboard top bar no longer clipped
-  - tasks top bar no longer clipped
-  - app still launches and navigates correctly
-  - `adb shell monkey -p com.aistudio.mohamyphone.lylawar -c android.intent.category.LAUNCHER 1`
-    - returned to `com.example.MainActivity`
+- Android: `clean :app:testDebugUnitTest :app:assembleDebug` → **BUILD SUCCESSFUL**.
+- Admin server: `npm test` → 9/9 pass; `npm audit` → **0 vulnerabilities**.
+- Fixed debug build: installs and launches on emulator without crash/ANR.
+- Historical v1.7.1 → published v1.8.0: update prompt still appears; the old APK still has the old handler.
+- Full fixed update flow: **blocked from completion** until a new release containing the fix is available.
 
 ## Notes For Next Agent
 - Keep exactly one root `STATUS.md`.
-- `docs/qa/emulator/LAWYER_PRESENTATION_QA_2026-06-28.md` has the latest lawyer presentation QA notes.
-- Do not change `update/latest.json` until the v1.8.0 release asset is published and verified.
-- Do not mix signing/publish/release tasks into current UI work; release workflow is the remaining blocker.
+- No new tag or release was created. `update/latest.json` is unchanged (still 1.8.0).
+- The ANR fix is in source only; a new build/release is required for real end-to-end validation.
+- Suggested next release: v1.8.1, including only this fix. CI will update `update/latest.json` automatically.

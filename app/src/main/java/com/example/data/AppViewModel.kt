@@ -2,6 +2,7 @@ package com.example.data
 
 import android.app.Application
 import android.net.Uri
+import android.content.Intent
 import com.example.BuildConfig
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -147,6 +148,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var updateRemoteReleaseTitle by mutableStateOf<String?>(null)
     var updateRemoteReleaseNotes by mutableStateOf("")
     var updateRemoteDownloadUrl by mutableStateOf("")
+    var updateRemoteReleasePageUrl by mutableStateOf("")
     var updateDownloadProgress by mutableStateOf(0)
     var downloadedUpdateFilePath by mutableStateOf<String?>(null)
     var updateStatusMessage by mutableStateOf<String?>(null)
@@ -328,6 +330,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     updateRemoteReleaseTitle = null
                     updateRemoteReleaseNotes = ""
                     updateRemoteDownloadUrl = ""
+                    updateRemoteReleasePageUrl = ""
                     updateStatusMessage = "التطبيق محدث بالفعل."
                     if (showUserFeedback) {
                         globalInfoMsg = "التطبيق محدث بالفعل."
@@ -341,6 +344,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 updateRemoteReleaseTitle = updateInfo.releaseTitle
                 updateRemoteReleaseNotes = updateInfo.releaseNotes
                 updateRemoteDownloadUrl = updateInfo.apkUrl
+                updateRemoteReleasePageUrl = updateInfo.releasePageUrl
                 updateStatusMessage = "توجد نسخة أحدث جاهزة للتنزيل."
                 globalInfoMsg = "يوجد تحديث جديد للتطبيق."
                 AppNotificationManager.notifyUpdateAvailable(
@@ -357,6 +361,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 updateRemoteReleaseTitle = null
                 updateRemoteReleaseNotes = ""
                 updateRemoteDownloadUrl = ""
+                updateRemoteReleasePageUrl = ""
                 downloadedUpdateFilePath = null
                 updateStatusMessage = null
                 if (showUserFeedback) {
@@ -375,6 +380,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
+            // Prefer opening the published APK URL (or release page) externally to avoid blocking UI.
+            val ctx = getApplication<Application>()
+            val primaryUri = runCatching { Uri.parse(remoteDownloadUrl) }.getOrNull()
+            val fallbackUri = runCatching {
+                Uri.parse(updateRemoteReleasePageUrl.ifBlank { BuildConfig.UPDATE_MANIFEST_URL })
+            }.getOrNull()
+
+            fun tryOpen(uri: Uri?): Boolean {
+                if (uri == null) return false
+                return runCatching {
+                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    ctx.startActivity(intent)
+                    true
+                }.getOrDefault(false)
+            }
+
+            val opened = tryOpen(primaryUri) || tryOpen(fallbackUri)
+            if (opened) {
+                updateStatusMessage = "جارٍ فتح رابط التحديث في المتصفح..."
+                globalInfoMsg = "تم فتح رابط التحديث في المتصفح. إذا لم يبدأ التنزيل، استخدم صفحة الإصدار."
+                return@launch
+            }
+
+            // Fallback to internal download if no external handler is available.
             updateDownloadInProgress = true
             updateDownloadProgress = 0
             updateStatusMessage = "جارٍ تنزيل ملف التحديث..."
@@ -385,7 +416,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 apkUrl = remoteDownloadUrl,
                 releaseNotes = updateRemoteReleaseNotes,
                 releaseTitle = updateRemoteReleaseTitle.orEmpty(),
-                sourceUrl = BuildConfig.UPDATE_MANIFEST_URL
+                sourceUrl = BuildConfig.UPDATE_MANIFEST_URL,
+                releasePageUrl = updateRemoteReleasePageUrl
             )
             manager.downloadUpdate(updateInfo) { progress ->
                 updateDownloadProgress = progress
@@ -435,6 +467,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         updateRemoteReleaseTitle = null
         updateRemoteReleaseNotes = ""
         updateRemoteDownloadUrl = ""
+        updateRemoteReleasePageUrl = ""
         updateDownloadProgress = 0
         downloadedUpdateFilePath = null
         updateStatusMessage = null

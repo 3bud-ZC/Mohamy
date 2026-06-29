@@ -18,7 +18,8 @@ data class AppUpdateInfo(
     val apkUrl: String,
     val releaseNotes: String = "",
     val releaseTitle: String = "",
-    val sourceUrl: String = BuildConfig.UPDATE_MANIFEST_URL
+    val sourceUrl: String = BuildConfig.UPDATE_MANIFEST_URL,
+    val releasePageUrl: String = ""
 ) {
     val displayVersionLabel: String
         get() = versionName.ifBlank { "v$versionCode" }
@@ -39,7 +40,8 @@ object AppUpdateParser {
             releaseNotes = readReleaseNotes(json),
             releaseTitle = extractStringField(json, "title")
                 ?: extractStringField(json, "name").orEmpty(),
-            sourceUrl = sourceUrl
+            sourceUrl = sourceUrl,
+            releasePageUrl = readReleasePageUrl(json)
         )
     }
 
@@ -101,6 +103,14 @@ object AppUpdateParser {
         val changelog = extractStringField(rawJson, "changelog").orEmpty().trim()
         if (changelog.isNotBlank()) return changelog
         return extractStringField(rawJson, "body").orEmpty().trim()
+    }
+
+    private fun readReleasePageUrl(rawJson: String): String {
+        val keys = listOf("releasePageUrl", "release_page_url", "releasePage", "release_url", "html_url")
+        keys.forEach { key ->
+            extractStringField(rawJson, key)?.trim().takeIf { !it.isNullOrBlank() }?.let { return it }
+        }
+        return ""
     }
 
     private fun readDownloadUrl(rawJson: String): String? {

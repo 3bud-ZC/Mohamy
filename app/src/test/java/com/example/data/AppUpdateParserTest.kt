@@ -50,4 +50,22 @@ class AppUpdateParserTest {
         assertEquals("https://example.com/app-release.apk", info.apkUrl)
         assertTrue(info.releaseNotes.contains("Bug fixes"))
     }
+
+    @Test
+    fun parsesReleasePageUrl() {
+        val info = AppUpdateParser.parse(
+            """
+            {
+              "versionCode": 6,
+              "versionName": "1.5.0",
+              "apkUrl": "https://example.com/app-release.apk",
+              "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.5.0"
+            }
+            """.trimIndent(),
+            "https://raw.githubusercontent.com/3bud-ZC/Mohamy/main/update/latest.json"
+        )
+
+        assertEquals(6, info.versionCode)
+        assertEquals("https://github.com/3bud-ZC/Mohamy/releases/tag/v1.5.0", info.releasePageUrl)
+    }
 }
