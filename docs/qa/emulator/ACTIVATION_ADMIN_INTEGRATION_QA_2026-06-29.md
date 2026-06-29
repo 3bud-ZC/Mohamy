@@ -34,6 +34,20 @@
 - `GET /api` -> fail (`Cannot GET /api`)
 - `GET /admin` -> fail (`Cannot GET /admin`)
 
+## Production Access Check
+- SSH alias found locally:
+  - `vps-default` -> `root@161.35.54.6`
+- Result of direct SSH auth check on `2026-06-29`:
+  - `Permission denied (publickey)`
+- Consequence:
+  - production app path could not be inspected from this environment
+  - PM2 process name/status could not be confirmed live from this environment
+  - production Nginx site file could not be inspected live from this environment
+  - production `.env` location could not be confirmed live from this environment
+  - production SQLite DB path could not be confirmed live from this environment
+- Conclusion:
+  - production redeploy/restart was **not possible from this session** because the VPS does not accept the configured local key for `root`
+
 ## Production Activation Probe
 - Probe route: `POST https://mohamy.abud.fun/api/license/activate`
 - Payload type: harmless invalid credentials only, no destructive action
@@ -61,26 +75,42 @@
 - Debug APK path:
   - `C:\Users\Abud\Desktop\GitHub\MohamyPhone\app\build\outputs\apk\debug\app-debug.apk`
 
+## APK Install Commands For Manual Test
+- Normal reinstall:
+  - `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+- If an old conflicting install exists:
+  - `adb uninstall com.aistudio.mohamyphone.lylawar`
+  - `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+
 ## Emulator / Device Result
-- `adb devices -l` showed no healthy online device.
-- Available AVDs:
-  - `Medium_Desktop`
-  - `Pixel_10_Pro_Fold`
-- `Pixel_10_Pro_Fold` bring-up remained `adb offline`, so no fresh device-side screenshot or end-to-end activation replay was captured in this run.
+- The newer UI polish run already confirmed a healthy emulator install path and activation-screen capture from the rebuilt debug APK.
+- A full live activation replay still could not be executed in this pass because the production backend remains broken and no live account could be created from this environment.
 
 ## Screenshots
-- None captured in this run.
-- Pending after a healthy emulator or device session is available.
+- Activation-screen UI evidence exists from the rebuilt debug APK in:
+  - `docs/qa/emulator/ui-polish-2026-06-29-final.png`
+  - `docs/qa/emulator/ui-polish-2026-06-29-final.xml`
+- Live post-login activation evidence is still pending.
 
 ## Pass / Fail Conclusion
 - Repo code fix: **PASS**
 - Local admin/license integration: **PASS**
 - Android build + APK generation: **PASS**
 - Live production activation on deployed backend: **FAIL / PENDING**
-- Reason: deployed `POST /api/license/activate` still returns `HTTP 500`, and no production admin session was available here to create the requested live test account.
+- Production redeploy/restart from this environment: **BLOCKED**
+- Reason:
+  - deployed `POST /api/license/activate` still returns `HTTP 500`
+  - the current machine does not have an accepted VPS SSH credential
+  - no production admin session was available here to create the requested live test account
 
 ## Remaining Work
-- Redeploy/restart the production `admin-server`.
-- Create the live test account from the real admin panel.
+- Gain working VPS access for `mohamy.abud.fun` or redeploy the fixed `admin-server` externally.
+- Verify the production PM2 process and restart the correct app after deployment.
+- Confirm the invalid activation probe no longer returns `HTTP 500`.
+- Create the live test account:
+  - name: `Test Lawyer`
+  - username: `test1`
+  - phone: `01000000000`
+  - password: `123456`
 - Install the debug APK and repeat activation on a real device or healthy emulator.
 - Capture the final success/failure screenshot set here after that retest.
