@@ -9,16 +9,17 @@
 - Commercial readiness: 100%
 
 ## What Was Verified
-- `app/build.gradle.kts` remains `versionName: 1.8.0 / versionCode: 12`.
+- `app/build.gradle.kts` is now `versionName: 1.8.1 / versionCode: 13` for the hotfix build (release not yet published).
 - Tag `v1.8.0` is published; GitHub Actions release already succeeded. No new tag created.
 - Release page and APK asset are still reachable (HTTP 200).
-- `update/latest.json` remains `versionName: 1.8.0 / versionCode: 12` set by CI; not modified.
+- `update/latest.json` remains `versionName: 1.8.0 / versionCode: 12` set by CI; intentionally not modified until v1.8.1 release is published.
 - Android validation: `clean :app:testDebugUnitTest :app:assembleDebug` passed.
 - Admin validation: `npm test` 9/9 passed; `npm audit` 0 vulnerabilities.
 - Fixed debug build installs and launches on the emulator without crash or ANR.
 - The published v1.7.1 APK still detects the available v1.8.0 update and shows the in-app prompt; it still contains the old handler, so a real v1.7.1 → fixed-update path cannot be tested without a new release.
 
 ## Changes Made In This Run
+- Started v1.8.1 hotfix prep: bumped `defaultConfig` to `versionCode = 13` / `versionName = "1.8.1"`; left `update/latest.json` untouched until CI updates it.
 - Fixed update-prompt ANR in `AppViewModel.downloadAndInstallAppUpdate()` by dispatching the update via a non-blocking `ACTION_VIEW` intent with `FLAG_ACTIVITY_NEW_TASK` before falling back to the old internal download.
 - Added `releasePageUrl` to `AppUpdateInfo` and the parser in `AppUpdateManager.kt` so the update flow can fall back to the release page URL if the APK URL intent fails.
 - Added `parsesReleasePageUrl()` unit test in `AppUpdateParserTest.kt`.
@@ -38,7 +39,7 @@
 - Do not change `update/latest.json` until CI updates it for the next release.
 
 ## Next Required Work
-- Build and publish a follow-up Android release (v1.8.1) that includes the ANR fix.
+- Build and publish the v1.8.1 hotfix that includes the ANR fix.
 - Re-run the v1.7.1 → fixed-release update flow on emulator or a real device and confirm:
   - Acknowledging the update prompt does not ANR.
   - The browser/download intent reaches the installer/download boundary.
