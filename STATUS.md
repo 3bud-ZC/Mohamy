@@ -1,30 +1,30 @@
 # MohamyPhone Status
 
 ## Current Completion Estimate
-- Overall: 97%
+- Overall: 99%
 - Android app: 100%
 - Admin server: 100%
-- Release/update flow: 90% (ANR fix in code; needs v1.8.1 release to validate end-to-end)
-- Testing: 92% (build/admin tests pass; full fixed update flow blocked by release boundary)
+- Release/update flow: 97% (v1.8.1 published with ANR fix; real update-flow retest pending due to emulator bring-up issues)
+- Testing: 94% (unit/admin suites pass; real update flow not re-run yet)
 - Commercial readiness: 100%
 
 ## What Was Verified
-- `app/build.gradle.kts` is now `versionName: 1.8.1 / versionCode: 13` for the hotfix build (release not yet published).
-- Tag `v1.8.0` is published; GitHub Actions release already succeeded. No new tag created.
-- Release page and APK asset are still reachable (HTTP 200).
-- `update/latest.json` remains `versionName: 1.8.0 / versionCode: 12` set by CI; intentionally not modified until v1.8.1 release is published.
-- Android validation: `clean :app:testDebugUnitTest :app:assembleDebug` passed.
+- `app/build.gradle.kts` now `versionName: 1.8.1 / versionCode: 13`.
+- Tag `v1.8.1` created and pushed; Publish Android Release workflow succeeded.
+- Release page and APK asset for `v1.8.1` reachable (HTTP 200).
+- `update/latest.json` updated by CI to `versionName: 1.8.1 / versionCode: 13` with correct URLs.
+- Android validation: `clean :app:testDebugUnitTest :app:assembleDebug` passed (pre-release bump).
 - Admin validation: `npm test` 9/9 passed; `npm audit` 0 vulnerabilities.
-- Fixed debug build installs and launches on the emulator without crash or ANR.
-- The published v1.7.1 APK still detects the available v1.8.0 update and shows the in-app prompt; it still contains the old handler, so a real v1.7.1 → fixed-update path cannot be tested without a new release.
+- Fixed debug build installs and launches on emulator without crash/ANR (pre-release validation).
+- Real update flow re-test pending (emulator bring-up issues; will retry on Pixel 10 Pro Fold AVD).
 
 ## Changes Made In This Run
-- Started v1.8.1 hotfix prep: bumped `defaultConfig` to `versionCode = 13` / `versionName = "1.8.1"`; left `update/latest.json` untouched until CI updates it.
+- Bumped `defaultConfig` to `versionCode = 13` / `versionName = "1.8.1"` and committed `chore: prepare v1.8.1 hotfix release`.
+- Tagged and pushed `v1.8.1`; Publish Android Release workflow produced the release APK and updated `update/latest.json` on `main`.
 - Fixed update-prompt ANR in `AppViewModel.downloadAndInstallAppUpdate()` by dispatching the update via a non-blocking `ACTION_VIEW` intent with `FLAG_ACTIVITY_NEW_TASK` before falling back to the old internal download.
 - Added `releasePageUrl` to `AppUpdateInfo` and the parser in `AppUpdateManager.kt` so the update flow can fall back to the release page URL if the APK URL intent fails.
 - Added `parsesReleasePageUrl()` unit test in `AppUpdateParserTest.kt`.
-- Captured new retest screenshots and updated `docs/qa/emulator/REAL_UPDATE_FLOW_QA_2026-06-29.md` with the fix summary and validation results.
-- Did not touch `update/latest.json`, `app/build.gradle.kts`, `applicationId`, signing assets, tags, or releases.
+- Captured retest notes/screenshots and updated `docs/qa/emulator/REAL_UPDATE_FLOW_QA_2026-06-29.md` (pre-release).
 
 ## Update Flow QA (2026-06-29)
 - **Original failure:** v1.7.1 on emulator showed the v1.8.0 update prompt; acknowledging it produced an ANR dialog before the download/installer step (`update-flow-anr.png`).
@@ -34,13 +34,11 @@
 - **Remaining blocker:** end-to-end v1.7.1 → fixed v1.8.x update flow cannot be completed because the published v1.8.0 APK predates the fix. A follow-up release (suggested v1.8.1) is required to finish this test.
 
 ## Current Risks
-- The full fixed update flow is not yet verified end-to-end. The published v1.8.0 APK does not contain the fix.
+- Real update-flow verification (v1.8.0 → v1.8.1) is still pending; emulator bring-up failed locally. Needs rerun on Pixel 10 Pro Fold AVD or a real device.
 - Emulator Chrome/VIEW intent limitations may still prevent the download UI from foregrounding even with the fix; a real device may be needed for the final verification.
-- Do not change `update/latest.json` until CI updates it for the next release.
 
 ## Next Required Work
-- Build and publish the v1.8.1 hotfix that includes the ANR fix.
-- Re-run the v1.7.1 → fixed-release update flow on emulator or a real device and confirm:
+- Re-run the v1.7.1/v1.8.0 → v1.8.1 update flow on Pixel 10 Pro Fold AVD (Android 17) or a real device and confirm:
   - Acknowledging the update prompt does not ANR.
   - The browser/download intent reaches the installer/download boundary.
 - Update `STATUS.md` and QA doc once the end-to-end test passes.

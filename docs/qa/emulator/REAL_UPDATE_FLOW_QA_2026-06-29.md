@@ -41,8 +41,8 @@
 - `docs/qa/emulator/debug-build-launch.png`: fixed debug build opens without crash.
 
 ## Follow-ups
-- Build and publish a follow-up release (suggested v1.8.1) that includes the ANR fix.
-- Re-run the full v1.7.1 → fixed-release update flow on emulator or a real device and confirm:
+- v1.8.1 hotfix (ANR fix) has been published and `update/latest.json` is updated by CI.
+- Re-run the full v1.7.1/v1.8.0 → v1.8.1 update flow on Pixel 10 Pro Fold AVD (Android 17) or a real device and confirm:
   - Acknowledging the update prompt does not ANR.
   - The browser/download intent is dispatched and reaches the installer/download boundary.
-- Keep `update/latest.json` pointing to the new release once CI updates it.
+- Emulator bring-up failed on `Medium_Phone` during this session; retry on Pixel 10 Pro Fold AVD before real-device fallback.
