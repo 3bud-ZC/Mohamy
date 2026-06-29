@@ -32,9 +32,9 @@ fun MohamyStatusBadge(
 ) {
   val background = when (tone) {
     MohamyBadgeTone.Gold -> MohamyGold.copy(alpha = 0.16f)
-    MohamyBadgeTone.Success -> MohamySuccess.copy(alpha = 0.18f)
+    MohamyBadgeTone.Success -> MohamySuccess.copy(alpha = 0.16f)
     MohamyBadgeTone.Danger -> MohamyDanger.copy(alpha = 0.18f)
-    MohamyBadgeTone.Neutral -> MaterialTheme.colorScheme.surfaceVariant
+    MohamyBadgeTone.Neutral -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
   }
   val border = when (tone) {
     MohamyBadgeTone.Gold -> MohamyGold.copy(alpha = 0.4f)
@@ -54,8 +54,13 @@ fun MohamyStatusBadge(
       modifier
         .background(background, RoundedCornerShape(MohamyDimens.badgeRadius))
         .border(1.dp, border, RoundedCornerShape(MohamyDimens.badgeRadius))
-        .padding(horizontal = 10.dp, vertical = 5.dp)
+        .padding(horizontal = 12.dp, vertical = 6.dp)
   ) {
-    Text(text = text, color = textColor, fontWeight = FontWeight.Bold)
+    Text(
+      text = text,
+      color = textColor,
+      fontWeight = FontWeight.ExtraBold,
+      style = MaterialTheme.typography.labelMedium
+    )
   }
 }

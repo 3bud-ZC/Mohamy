@@ -53,8 +53,7 @@ import com.example.ui.theme.MohamyCharcoal
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
 import com.example.ui.theme.MohamyGoldBright
-import com.example.ui.theme.MohamyMutedText
-import com.example.ui.theme.MohamyWarmTextSoft
+import com.example.ui.theme.legalScreenBackground
 
 private val ActivationCardBorder = Color(0xFF74603A)
 private val ActivationFieldBorder = Color(0xFF8D7743)
@@ -63,6 +62,8 @@ private val ActivationHintBackground = Color(0xFF20180D)
 private val ActivationHintText = Color(0xFFF3E5B7)
 private val ActivationNoteBackground = Color(0xFF261D10)
 private val ActivationNoteText = Color(0xFFF5E8C3)
+private val ActivationBodyText = Color(0xFF655541)
+private val ActivationLabelText = Color(0xFF8A7347)
 
 @Composable
 fun ActivationScreen(viewModel: AppViewModel) {
@@ -73,7 +74,7 @@ fun ActivationScreen(viewModel: AppViewModel) {
   Column(
     modifier =
       Modifier.fillMaxSize()
-        .background(Brush.verticalGradient(colors = listOf(MohamyBlack, MohamyCharcoal, MohamyBlack)))
+        .legalScreenBackground()
         .verticalScroll(rememberScrollState())
         .padding(horizontal = MohamyDimens.screenHorizontal, vertical = MohamyDimens.screenVertical),
     verticalArrangement = Arrangement.spacedBy(MohamyDimens.sectionGap)
@@ -98,9 +99,9 @@ fun ActivationScreen(viewModel: AppViewModel) {
           fontWeight = FontWeight.ExtraBold
         )
         Text(
-          text = "واجهة دخول قانونية خاصة بمكتبك. البيانات القانونية تبقى محلية على الهاتف، والاتصال بالشبكة يستخدم فقط للتفعيل والتحقق عند الحاجة.",
+          text = "واجهة موثوقة لدخول مكتبك القانوني. بيانات القضايا والمستندات تبقى محلية على الهاتف، ويُستخدم الاتصال فقط للتفعيل والتحقق عند الحاجة.",
           style = MaterialTheme.typography.bodyMedium,
-          color = ActivationNoteText,
+          color = ActivationBodyText,
           lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -126,7 +127,8 @@ fun ActivationScreen(viewModel: AppViewModel) {
           Text(
             text = "مهم: هذا الحقل يطلب كلمة المرور الخاصة بالحساب، وليس license key.",
             style = MaterialTheme.typography.bodySmall,
-            color = ActivationNoteText
+            color = ActivationNoteText,
+            lineHeight = MaterialTheme.typography.bodySmall.lineHeight
           )
         }
 
@@ -172,7 +174,7 @@ fun ActivationScreen(viewModel: AppViewModel) {
           Text(
             text = "أوافق على إبقاء بيانات القضايا والموكلين والمستندات داخل التخزين المحلي للتطبيق على هذا الجهاز.",
             style = MaterialTheme.typography.bodySmall,
-            color = ActivationNoteText,
+            color = ActivationBodyText,
             modifier = Modifier.padding(top = 12.dp)
           )
         }
@@ -228,7 +230,7 @@ private fun activationFieldColors() =
     unfocusedBorderColor = ActivationFieldBorder,
     disabledBorderColor = ActivationFieldBorder.copy(alpha = 0.6f),
     focusedLabelColor = ActivationFieldFocus,
-    unfocusedLabelColor = MohamyWarmTextSoft,
+    unfocusedLabelColor = ActivationLabelText,
     focusedLeadingIconColor = ActivationFieldFocus,
     unfocusedLeadingIconColor = MohamyGoldBright,
     focusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -237,6 +239,6 @@ private fun activationFieldColors() =
     focusedContainerColor = Color.Transparent,
     unfocusedContainerColor = Color.Transparent,
     disabledContainerColor = Color.Transparent,
-    focusedPlaceholderColor = MohamyMutedText,
-    unfocusedPlaceholderColor = MohamyMutedText
+    focusedPlaceholderColor = ActivationLabelText,
+    unfocusedPlaceholderColor = ActivationLabelText
   )

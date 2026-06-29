@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.theme.MohamyCharcoal
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
+import com.example.ui.theme.MohamyGoldBright
 
 data class MohamyTopBarAction(
   val icon: ImageVector,
@@ -51,19 +53,21 @@ fun MohamyTopBar(
       modifier
         .fillMaxWidth()
         .statusBarsPadding()
-        .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+        .padding(horizontal = MohamyDimens.screenHorizontal, vertical = 10.dp)
+        .clip(RoundedCornerShape(28.dp))
         .background(Brush.verticalGradient(colors = listOf(MohamyCharcoal, MaterialTheme.colorScheme.surface)))
-        .padding(horizontal = MohamyDimens.screenHorizontal, vertical = 14.dp)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f), RoundedCornerShape(28.dp))
+        .padding(horizontal = 16.dp, vertical = 14.dp)
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(12.dp)
+      horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
       if (showBackButton && onBackClick != null) {
         IconButton(
           onClick = onBackClick,
-          modifier = Modifier.background(MohamyGold.copy(alpha = 0.12f), CircleShape)
+          modifier = Modifier.background(MohamyGold.copy(alpha = 0.14f), CircleShape)
         ) {
           Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -71,19 +75,17 @@ fun MohamyTopBar(
             tint = MohamyGold
           )
         }
-      } else {
-        Spacer(modifier = Modifier.size(48.dp))
       }
 
       Column(modifier = Modifier.weight(1f)) {
         Text(
           text = title,
-          style = MaterialTheme.typography.titleLarge,
+          style = MaterialTheme.typography.headlineSmall,
           color = MaterialTheme.colorScheme.onSurface,
           fontWeight = FontWeight.ExtraBold
         )
         if (subtitle != null) {
-          Spacer(modifier = Modifier.height(4.dp))
+          Spacer(modifier = Modifier.height(6.dp))
           Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
@@ -95,12 +97,15 @@ fun MohamyTopBar(
       actions.forEach { action ->
         IconButton(
           onClick = action.onClick,
-          modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), CircleShape)
+          modifier =
+            Modifier
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.76f), CircleShape)
+              .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f), CircleShape)
         ) {
           Icon(
             imageVector = action.icon,
             contentDescription = action.contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface
+            tint = if (action == actions.firstOrNull()) MohamyGoldBright else MaterialTheme.colorScheme.onSurface
           )
         }
       }

@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.MohamyBlack
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
 
@@ -35,15 +33,20 @@ fun MohamyBottomNav(
   items: List<MohamyBottomNavItem>,
   modifier: Modifier = Modifier,
 ) {
-  Box(modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+  Box(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
     Surface(
       modifier = Modifier.fillMaxWidth(),
-      shape = RoundedCornerShape(30.dp),
-      color = MohamyBlack,
-      shadowElevation = 18.dp
+      shape = RoundedCornerShape(28.dp),
+      color = MaterialTheme.colorScheme.surface,
+      tonalElevation = 0.dp,
+      shadowElevation = 8.dp,
+      border = androidx.compose.foundation.BorderStroke(
+        1.dp,
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)
+      )
     ) {
       NavigationBar(
-        modifier = Modifier.fillMaxWidth().height(74.dp),
+        modifier = Modifier.fillMaxWidth().height(MohamyDimens.navHeight),
         containerColor = Color.Transparent,
         tonalElevation = 0.dp
       ) {
@@ -55,7 +58,8 @@ fun MohamyBottomNav(
             label = {
               Text(
                 text = item.label,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.labelSmall
               )
             },
             alwaysShowLabel = true,
@@ -63,7 +67,7 @@ fun MohamyBottomNav(
               NavigationBarItemDefaults.colors(
                 selectedIconColor = MohamyGold,
                 selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                indicatorColor = MohamyGold.copy(alpha = 0.14f),
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
               )

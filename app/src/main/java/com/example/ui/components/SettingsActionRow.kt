@@ -40,9 +40,9 @@ fun SettingsActionRow(
 
   Surface(
     modifier = rowModifier,
-    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
-    shape = RoundedCornerShape(18.dp),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+    shape = RoundedCornerShape(20.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f))
   ) {
     Row(
       modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
@@ -51,8 +51,7 @@ fun SettingsActionRow(
     ) {
       Box(
         modifier =
-          Modifier
-            .size(38.dp),
+          Modifier.size(40.dp),
         contentAlignment = Alignment.Center
       ) {
         Icon(
@@ -67,7 +66,7 @@ fun SettingsActionRow(
           text = title,
           style = MaterialTheme.typography.bodyLarge,
           color = MaterialTheme.colorScheme.onSurface,
-          fontWeight = FontWeight.SemiBold
+          fontWeight = FontWeight.Bold
         )
         if (!subtitle.isNullOrBlank()) {
           Text(

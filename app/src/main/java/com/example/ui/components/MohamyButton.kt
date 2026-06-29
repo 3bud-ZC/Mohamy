@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -41,9 +42,9 @@ fun MohamyButton(
   val rowContent: @Composable () -> Unit = {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       if (icon != null) {
-        Icon(imageVector = icon, contentDescription = null)
+        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
       }
-      Text(text = text, fontWeight = FontWeight.Bold)
+      Text(text = text, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelLarge)
     }
   }
 
@@ -51,37 +52,42 @@ fun MohamyButton(
     MohamyButtonStyle.Primary -> {
       Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(56.dp),
         enabled = enabled,
         shape = shape,
         colors = ButtonDefaults.buttonColors(
           containerColor = MaterialTheme.colorScheme.primary,
           contentColor = MaterialTheme.colorScheme.onPrimary
-        )
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 1.dp)
       ) { rowContent() }
     }
 
     MohamyButtonStyle.Secondary -> {
       Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(56.dp),
         enabled = enabled,
         shape = shape,
         colors = ButtonDefaults.buttonColors(
-          containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-          contentColor = MaterialTheme.colorScheme.primary
-        )
+          containerColor = MaterialTheme.colorScheme.primaryContainer,
+          contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp)
       ) { rowContent() }
     }
 
     MohamyButtonStyle.Ghost -> {
       OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(56.dp),
         enabled = enabled,
         shape = shape,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+          containerColor = MaterialTheme.colorScheme.surface,
+          contentColor = MaterialTheme.colorScheme.onSurface
+        )
       ) { rowContent() }
     }
   }

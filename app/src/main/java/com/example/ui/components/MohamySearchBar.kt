@@ -11,6 +11,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.example.ui.theme.MohamyDimens
 
 @Composable
@@ -24,7 +25,7 @@ fun MohamySearchBar(
     value = value,
     onValueChange = onValueChange,
     modifier = modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(MohamyDimens.buttonRadius),
+    shape = RoundedCornerShape(20.dp),
     singleLine = true,
     leadingIcon = {
       Icon(
@@ -38,8 +39,13 @@ fun MohamySearchBar(
       OutlinedTextFieldDefaults.colors(
         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
         focusedContainerColor = MaterialTheme.colorScheme.surface,
+        disabledContainerColor = MaterialTheme.colorScheme.surface,
         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-        focusedBorderColor = MaterialTheme.colorScheme.primary
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedTextColor = MaterialTheme.colorScheme.onSurface
       )
   )
 }

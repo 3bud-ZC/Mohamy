@@ -44,9 +44,9 @@ fun SettingsSection(
         Box(
           modifier =
             Modifier
-              .size(46.dp)
-              .background(MohamyGold.copy(alpha = 0.12f), CircleShape)
-              .border(1.dp, MohamyGold.copy(alpha = 0.36f), CircleShape),
+              .size(48.dp)
+              .background(MohamyGold.copy(alpha = 0.14f), CircleShape)
+              .border(1.dp, MohamyGold.copy(alpha = 0.34f), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Icon(
@@ -61,7 +61,7 @@ fun SettingsSection(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.ExtraBold
           )
           if (!subtitle.isNullOrBlank()) {
             Text(

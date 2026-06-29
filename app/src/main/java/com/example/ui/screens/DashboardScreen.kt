@@ -10,12 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.AccountBalance
@@ -23,7 +20,9 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.FolderCopy
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Settings
@@ -58,19 +57,21 @@ import com.example.data.Client
 import com.example.data.LegalCase
 import com.example.data.LegalTask
 import com.example.data.Screen
+import com.example.ui.components.MohamyBadgeTone
 import com.example.ui.components.MohamyButton
 import com.example.ui.components.MohamyButtonStyle
 import com.example.ui.components.MohamyCard
 import com.example.ui.components.MohamyEmptyState
 import com.example.ui.components.MohamyStatusBadge
-import com.example.ui.components.MohamyBadgeTone
-import com.example.ui.theme.MohamyBlack
-import com.example.ui.theme.MohamyCharcoal
+import com.example.ui.components.QuickActionTile
 import com.example.ui.theme.MohamyDanger
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
+import com.example.ui.theme.MohamyGoldBright
+import com.example.ui.theme.MohamyInfo
 import com.example.ui.theme.MohamySuccess
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.legalScreenBackground
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,25 +80,16 @@ private data class DashboardStat(
   val title: String,
   val value: String,
   val icon: ImageVector,
+  val accent: Color,
 )
 
 private data class QuickAction(
   val title: String,
+  val subtitle: String,
   val icon: ImageVector,
+  val accent: Color,
   val onClick: () -> Unit,
 )
-
-private fun parseDashboardSessionMillis(session: CaseSession): Long? {
-  val full = if (session.time.isBlank()) "${session.date} 23:59" else "${session.date} ${session.time}"
-  val formats = listOf("yyyy-MM-dd HH:mm", "yyyy-MM-dd H:mm")
-  formats.forEach { pattern ->
-    try {
-      return SimpleDateFormat(pattern, Locale.ENGLISH).parse(full)?.time
-    } catch (_: Exception) {
-    }
-  }
-  return null
-}
 
 @Composable
 fun DashboardScreen(
@@ -111,7 +103,7 @@ fun DashboardScreen(
   val license by viewModel.licenseState.collectAsState(initial = null)
   var showDemoSeedDialog by remember { mutableStateOf(false) }
   val todayDateStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
-  val lawyerName = license?.lawyerName?.takeIf { it.isNotBlank() } ?: "أستاذ / أستاذة"
+  val lawyerName = license?.lawyerName?.takeIf { it.isNotBlank() } ?: "الأستاذ المحامي"
   val todaySessions = sessions.filter { it.date.trim() == todayDateStr && it.status != "ملغاة" }
   val isWorkspaceEmpty =
     clients.isEmpty() && cases.isEmpty() && sessions.isEmpty() && tasks.isEmpty() && files.isEmpty()
@@ -125,22 +117,32 @@ fun DashboardScreen(
 
   val stats =
     listOf(
-      DashboardStat("قضايا نشطة", cases.size.toString(), Icons.Default.WorkOutline),
-      DashboardStat("جلسات اليوم", todaySessions.size.toString(), Icons.Default.Event),
-      DashboardStat(
-        "مهام متأخرة",
-        urgentTasks.count { it.dueDate < todayDateStr }.toString(),
-        Icons.Default.TaskAlt
-      ),
-      DashboardStat("عملاء", clients.size.toString(), Icons.Default.Groups)
+      DashboardStat("قضايا نشطة", cases.size.toString(), Icons.Default.WorkOutline, MohamyGold),
+      DashboardStat("جلسات اليوم", todaySessions.size.toString(), Icons.Default.Event, MohamyInfo),
+      DashboardStat("مهام عاجلة", urgentTasks.size.toString(), Icons.Default.TaskAlt, MohamyDanger),
+      DashboardStat("ملفات محلية", files.size.toString(), Icons.Default.FolderCopy, MohamySuccess),
     )
 
   val quickActions =
     listOf(
-      QuickAction("إضافة قضية", Icons.Default.WorkOutline) { viewModel.navigateTo(Screen.CaseAddEdit()) },
-      QuickAction("إضافة عميل", Icons.Default.PersonAddAlt1) { viewModel.navigateTo(Screen.ClientAddEdit()) },
-      QuickAction("إضافة جلسة", Icons.Default.CalendarMonth) { viewModel.navigateTo(Screen.SessionAddEdit()) },
-      QuickAction("إضافة مستند", Icons.AutoMirrored.Filled.InsertDriveFile) { viewModel.navigateTo(Screen.FilesLibrary) }
+      QuickAction("القضايا", "عرض الملفات النشطة والأرشيف", Icons.Default.WorkOutline, MohamyGold) {
+        viewModel.navigateTo(Screen.CasesList)
+      },
+      QuickAction("العملاء", "إدارة الموكلين وسجل التواصل", Icons.Default.Groups, MohamyInfo) {
+        viewModel.navigateTo(Screen.ClientsList)
+      },
+      QuickAction("الجلسات", "تنظيم المرافعات والمواعيد", Icons.Default.CalendarMonth, MohamySuccess) {
+        viewModel.navigateTo(Screen.SessionsList)
+      },
+      QuickAction("المهام", "متابعة الأعمال والتنبيهات", Icons.Default.TaskAlt, MohamyDanger) {
+        viewModel.navigateTo(Screen.TasksList)
+      },
+      QuickAction("المستندات", "فتح الأرشيف القانوني المحلي", Icons.AutoMirrored.Filled.InsertDriveFile, MohamyGoldBright) {
+        viewModel.navigateTo(Screen.FilesLibrary)
+      },
+      QuickAction("الخصوصية المحلية", "مراجعة الأمان والإعدادات", Icons.Default.PrivacyTip, MohamyInfo) {
+        viewModel.navigateTo(Screen.Settings)
+      },
     )
 
   val demoAction: () -> Unit = {
@@ -187,19 +189,22 @@ fun DashboardScreen(
     urgentTasks = urgentTasks,
     recentFiles = files.takeLast(3).reversed(),
     quickActions = quickActions,
-    showWelcomeCard = isWorkspaceEmpty || !viewModel.isOnboardingCompleted,
+    showOnboardingCtas = isWorkspaceEmpty || !viewModel.isOnboardingCompleted,
     isWorkspaceEmpty = isWorkspaceEmpty,
     hasDemoSeeded = viewModel.hasDemoSeededForCurrentWorkspace,
     onStartUsing = {
       viewModel.completeOnboarding()
       if (isWorkspaceEmpty) {
         viewModel.navigateTo(Screen.ClientAddEdit())
+      } else {
+        viewModel.navigateTo(Screen.CasesList)
       }
     },
     onDemoAction = demoAction,
     onSettingsAction = { viewModel.navigateTo(Screen.Settings) },
     onCasesAction = { viewModel.navigateTo(Screen.CasesList) },
     onTasksAction = { viewModel.navigateTo(Screen.TasksList) },
+    onFilesAction = { viewModel.navigateTo(Screen.FilesLibrary) },
     onSessionClick = { session -> viewModel.navigateTo(Screen.SessionAddEdit(sessionId = session.id)) },
     onTaskClick = { task ->
       viewModel.navigateTo(Screen.TaskAddEdit(taskId = task.id, presetCaseId = task.caseId))
@@ -216,7 +221,7 @@ private fun DashboardShell(
   urgentTasks: List<LegalTask>,
   recentFiles: List<CaseFile>,
   quickActions: List<QuickAction>,
-  showWelcomeCard: Boolean,
+  showOnboardingCtas: Boolean,
   isWorkspaceEmpty: Boolean,
   hasDemoSeeded: Boolean,
   onStartUsing: () -> Unit,
@@ -224,67 +229,77 @@ private fun DashboardShell(
   onSettingsAction: () -> Unit,
   onCasesAction: () -> Unit,
   onTasksAction: () -> Unit,
+  onFilesAction: () -> Unit,
   onSessionClick: (CaseSession) -> Unit,
   onTaskClick: (LegalTask) -> Unit,
   onFileClick: (CaseFile) -> Unit,
 ) {
   LazyColumn(
-    modifier =
-      Modifier.fillMaxSize().background(
-        Brush.verticalGradient(colors = listOf(MohamyBlack, MohamyCharcoal, MohamyBlack))
+    modifier = Modifier.fillMaxSize().legalScreenBackground(),
+    contentPadding =
+      androidx.compose.foundation.layout.PaddingValues(
+        horizontal = MohamyDimens.screenHorizontal,
+        vertical = MohamyDimens.screenVertical
       ),
-    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-      horizontal = MohamyDimens.screenHorizontal,
-      vertical = MohamyDimens.screenVertical
-    ),
     verticalArrangement = Arrangement.spacedBy(MohamyDimens.sectionGap)
   ) {
-    if (showWelcomeCard) {
-      item {
-        WorkspaceWelcomeCard(
-          isWorkspaceEmpty = isWorkspaceEmpty,
-          hasDemoSeeded = hasDemoSeeded,
-          onStartUsing = onStartUsing,
-          onDemoAction = onDemoAction,
-          onSettingsAction = onSettingsAction
-        )
-      }
+    item {
+      DashboardHeroCard(
+        lawyerName = lawyerName,
+        showOnboardingCtas = showOnboardingCtas,
+        hasDemoSeeded = hasDemoSeeded,
+        onPrimaryClick = onStartUsing,
+        onSecondaryClick = if (showOnboardingCtas) onDemoAction else onSettingsAction
+      )
     }
 
     item {
-      MohamyCard {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-          Box(
-            modifier =
-              Modifier.fillMaxWidth().background(
-                Brush.linearGradient(
-                  colors = listOf(MohamyCharcoal, Color(0xFF292317))
-                ),
-                RoundedCornerShape(26.dp)
-              ).padding(18.dp)
+      DashboardSectionHeader(
+        title = "نظرة سريعة",
+        subtitle = "ملخص اليوم داخل مكتبك القانوني المحلي"
+      )
+    }
+
+    item {
+      Column(verticalArrangement = Arrangement.spacedBy(MohamyDimens.itemGap)) {
+        stats.chunked(2).forEach { rowItems ->
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(MohamyDimens.itemGap)
           ) {
-            Icon(
-              imageVector = Icons.Default.AccountBalance,
-              contentDescription = null,
-              tint = MohamyGold.copy(alpha = 0.12f),
-              modifier = Modifier.size(108.dp).align(Alignment.BottomEnd)
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              Text(
-                text =
-                  if (lawyerName.isBlank() || lawyerName.any { it.isDigit() }) {
-                    "مرحبًا بك"
-                  } else {
-                    "مرحبًا، $lawyerName"
-                  },
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.ExtraBold
-              )
-              Text(
-                text = "لوحة قيادة قانونية مصممة لمتابعة القضايا والجلسات والمهام اليومية بواجهة عربية احترافية.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            rowItems.forEach { stat ->
+              DashboardStatCard(stat = stat, modifier = Modifier.weight(1f))
+            }
+            if (rowItems.size == 1) {
+              Spacer(modifier = Modifier.weight(1f))
+            }
+          }
+        }
+      }
+    }
+
+    item {
+      DashboardSectionHeader(
+        title = "إجراءات سريعة",
+        subtitle = "وصول مباشر إلى أهم مهام العمل اليومية"
+      )
+    }
+
+    item {
+      Column(verticalArrangement = Arrangement.spacedBy(MohamyDimens.itemGap)) {
+        quickActions.chunked(2).forEach { rowItems ->
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(MohamyDimens.itemGap)
+          ) {
+            rowItems.forEach { action ->
+              QuickActionTile(
+                title = action.title,
+                subtitle = action.subtitle,
+                icon = action.icon,
+                accent = action.accent,
+                modifier = Modifier.weight(1f),
+                onClick = action.onClick
               )
             }
           }
@@ -293,183 +308,115 @@ private fun DashboardShell(
     }
 
     item {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionLabel("ملخص اليوم")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-          stats.chunked(2).first().forEach { stat ->
-            DashboardStatCard(stat = stat, modifier = Modifier.weight(1f))
-          }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-          stats.chunked(2).getOrNull(1)?.forEach { stat ->
-            DashboardStatCard(stat = stat, modifier = Modifier.weight(1f))
-          }
-        }
-      }
+      DashboardSectionHeader(
+        title = "جلسات اليوم",
+        subtitle = "ما يحتاج انتباهك داخل التقويم القانوني"
+      )
     }
 
     item {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionLabel("إجراءات سريعة")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-          quickActions.chunked(2).first().forEach { action ->
-            QuickActionCard(action = action, modifier = Modifier.weight(1f))
-          }
+      if (todaySessions.isEmpty()) {
+        MohamyCard {
+          MohamyEmptyState(
+            icon = Icons.Default.CalendarMonth,
+            title = "لا توجد جلسات اليوم",
+            message = "اليوم هادئ داخل المكتب. يمكنك مراجعة القضايا القادمة أو جدولة جلسة جديدة متى احتجت.",
+            actionText = "فتح القضايا",
+            onActionClick = onCasesAction,
+            secondaryActionText = if (isWorkspaceEmpty && !hasDemoSeeded) "إنشاء مساحة تجريبية" else null,
+            onSecondaryActionClick = if (isWorkspaceEmpty && !hasDemoSeeded) onDemoAction else null
+          )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-          quickActions.chunked(2).getOrNull(1)?.forEach { action ->
-            QuickActionCard(action = action, modifier = Modifier.weight(1f))
-          }
-        }
-      }
-    }
-
-    item {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionLabel("جلسات اليوم")
-        if (todaySessions.isEmpty()) {
-          MohamyCard {
-            MohamyEmptyState(
-              icon = Icons.Default.CalendarMonth,
-              title = "لا توجد جلسات اليوم",
-              message = "يوم هادئ داخل المكتب. يمكنك إضافة جلسة جديدة أو مراجعة القضايا القادمة.",
-              actionText = "فتح القضايا",
-              onActionClick = onCasesAction,
-              secondaryActionText = if (isWorkspaceEmpty && !hasDemoSeeded) "مساحة تجريبية" else null,
-              onSecondaryActionClick = if (isWorkspaceEmpty && !hasDemoSeeded) onDemoAction else null
-            )
-          }
-        } else {
+      } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
           todaySessions.forEach { session ->
-            MohamyCard(
-              modifier = Modifier.fillMaxWidth().clickable { onSessionClick(session) }
-            ) {
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-              ) {
-                Box(
-                  modifier = Modifier.size(46.dp).background(MohamyGold.copy(alpha = 0.12f), CircleShape),
-                  contentAlignment = Alignment.Center
-                ) {
-                  Icon(Icons.Default.Event, contentDescription = null, tint = MohamyGold)
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                  Text(session.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                  Text(
-                    "${session.caseTitle} • ${session.court.ifBlank { "المحكمة غير محددة" }}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                  )
-                  Text(
-                    "${session.date} ${session.time.ifBlank { "" }}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                  )
-                }
-                MohamyStatusBadge(text = session.status, tone = MohamyBadgeTone.Gold)
-              }
-            }
+            DashboardInfoCard(
+              icon = Icons.Default.Event,
+              accent = MohamyInfo,
+              title = session.title,
+              subtitle = "${session.caseTitle} • ${session.court.ifBlank { "المحكمة غير محددة" }}",
+              meta = "${session.date} ${session.time.ifBlank { "" }}",
+              badgeText = session.status,
+              badgeTone = MohamyBadgeTone.Gold,
+              onClick = { onSessionClick(session) }
+            )
           }
         }
       }
     }
 
     item {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionLabel("مهام عاجلة")
-        if (urgentTasks.isEmpty()) {
-          MohamyCard {
-            MohamyEmptyState(
-              icon = Icons.Default.TaskAlt,
-              title = "لا توجد مهام عاجلة",
-              message = "كل المهام الحالية تحت السيطرة. يمكنك متابعة قائمة المهام الكاملة لاحقًا.",
-              actionText = "فتح المهام",
-              onActionClick = onTasksAction,
-              secondaryActionText = if (isWorkspaceEmpty && !hasDemoSeeded) "عرض تجريبي" else null,
-              onSecondaryActionClick = if (isWorkspaceEmpty && !hasDemoSeeded) onDemoAction else null
-            )
-          }
-        } else {
+      DashboardSectionHeader(
+        title = "مهام عاجلة",
+        subtitle = "المهام التي تحتاج قراراً أو متابعة قريبة"
+      )
+    }
+
+    item {
+      if (urgentTasks.isEmpty()) {
+        MohamyCard {
+          MohamyEmptyState(
+            icon = Icons.Default.TaskAlt,
+            title = "لا توجد مهام عاجلة",
+            message = "كل المهام الحالية تحت السيطرة. راجع القائمة الكاملة إذا أردت التخطيط لخطوات اليوم التالية.",
+            actionText = "فتح المهام",
+            onActionClick = onTasksAction,
+            secondaryActionText = if (isWorkspaceEmpty && !hasDemoSeeded) "عرض تجريبي" else null,
+            onSecondaryActionClick = if (isWorkspaceEmpty && !hasDemoSeeded) onDemoAction else null
+          )
+        }
+      } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
           urgentTasks.forEach { task ->
-            val tone = if (task.dueDate < SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) {
-              MohamyBadgeTone.Danger
-            } else {
-              MohamyBadgeTone.Gold
-            }
-            MohamyCard(modifier = Modifier.fillMaxWidth().clickable { onTaskClick(task) }) {
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-              ) {
-                Box(
-                  modifier = Modifier.size(42.dp).background(MohamyDanger.copy(alpha = 0.16f), CircleShape),
-                  contentAlignment = Alignment.Center
-                ) {
-                  Icon(Icons.Default.TaskAlt, contentDescription = null, tint = MohamyDanger)
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                  Text(task.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                  Text(
-                    "الاستحقاق: ${task.dueDate.ifBlank { "غير محدد" }}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                  )
-                }
-                MohamyStatusBadge(text = task.status, tone = tone)
-              }
-            }
+            val overdue = task.dueDate < SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+            DashboardInfoCard(
+              icon = Icons.Default.TaskAlt,
+              accent = if (overdue) MohamyDanger else MohamyGold,
+              title = task.title,
+              subtitle = task.caseTitle ?: "مهمة عامة داخل المكتب",
+              meta = "الاستحقاق: ${task.dueDate.ifBlank { "غير محدد" }}",
+              badgeText = if (overdue) "متأخرة" else task.status,
+              badgeTone = if (overdue) MohamyBadgeTone.Danger else MohamyBadgeTone.Gold,
+              onClick = { onTaskClick(task) }
+            )
           }
         }
       }
     }
 
     item {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionLabel("ملفات حديثة")
-        if (recentFiles.isEmpty()) {
-          MohamyCard {
-            MohamyEmptyState(
-              icon = Icons.Default.Description,
-              title = "لا توجد مستندات بعد",
-              message = "أضف أول ملف أو مذكرة لتبدأ أرشفة المستندات داخل التطبيق.",
-              actionText = "فتح القضايا",
-              onActionClick = onCasesAction,
-              secondaryActionText = if (isWorkspaceEmpty && !hasDemoSeeded) "بيانات تجريبية" else null,
-              onSecondaryActionClick = if (isWorkspaceEmpty && !hasDemoSeeded) onDemoAction else null
-            )
-          }
-        } else {
+      DashboardSectionHeader(
+        title = "ملفات حديثة",
+        subtitle = "آخر ما تمت أرشفته داخل المساحة المحلية"
+      )
+    }
+
+    item {
+      if (recentFiles.isEmpty()) {
+        MohamyCard {
+          MohamyEmptyState(
+            icon = Icons.Default.Description,
+            title = "لا توجد مستندات بعد",
+            message = "أضف أول ملف أو مذكرة لتبدأ أرشفة المستندات داخل التطبيق بمظهر قانوني منظم.",
+            actionText = "فتح الملفات",
+            onActionClick = onFilesAction,
+            secondaryActionText = if (isWorkspaceEmpty && !hasDemoSeeded) "بيانات تجريبية" else null,
+            onSecondaryActionClick = if (isWorkspaceEmpty && !hasDemoSeeded) onDemoAction else null
+          )
+        }
+      } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
           recentFiles.forEach { file ->
-            MohamyCard(modifier = Modifier.fillMaxWidth().clickable { onFileClick(file) }) {
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-              ) {
-                Box(
-                  modifier = Modifier.size(42.dp).background(MohamySuccess.copy(alpha = 0.16f), CircleShape),
-                  contentAlignment = Alignment.Center
-                ) {
-                  Icon(Icons.Default.Description, contentDescription = null, tint = MohamySuccess)
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                  Text(file.fileName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                  Text(
-                    "${file.docType} • ${file.caseTitle}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                  )
-                }
-                MohamyButton(
-                  text = "فتح",
-                  onClick = { onFileClick(file) },
-                  style = MohamyButtonStyle.Secondary
-                )
-              }
-            }
+            DashboardInfoCard(
+              icon = Icons.Default.Description,
+              accent = MohamySuccess,
+              title = file.fileName,
+              subtitle = "${file.docType} • ${file.caseTitle}",
+              meta = if (file.clientName.isBlank()) "محفوظ محلياً داخل الجهاز" else "الموكل: ${file.clientName}",
+              badgeText = "فتح",
+              badgeTone = MohamyBadgeTone.Success,
+              onClick = { onFileClick(file) }
+            )
           }
         }
       }
@@ -478,23 +425,133 @@ private fun DashboardShell(
 }
 
 @Composable
+private fun DashboardHeroCard(
+  lawyerName: String,
+  showOnboardingCtas: Boolean,
+  hasDemoSeeded: Boolean,
+  onPrimaryClick: () -> Unit,
+  onSecondaryClick: () -> Unit,
+) {
+  MohamyCard(contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp)) {
+    Box(
+      modifier =
+        Modifier.fillMaxWidth()
+          .background(
+            Brush.linearGradient(
+              colors = listOf(
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+              )
+            ),
+            androidx.compose.foundation.shape.RoundedCornerShape(MohamyDimens.largeCardRadius)
+          )
+          .padding(22.dp)
+    ) {
+      Icon(
+        imageVector = Icons.Default.AccountBalance,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+        modifier = Modifier.size(116.dp).align(Alignment.BottomEnd)
+      )
+      Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
+        MohamyStatusBadge(text = "محلي وآمن", tone = MohamyBadgeTone.Success)
+        Text(
+          text = "مرحباً، $lawyerName",
+          style = MaterialTheme.typography.headlineSmall,
+          color = MaterialTheme.colorScheme.onSurface,
+          fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+          text = "منصة عربية احترافية لإدارة القضايا والموكلين والجلسات والمستندات مع خصوصية كاملة داخل جهازك.",
+          style = MaterialTheme.typography.bodyLarge,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          DashboardPill("إدارة القضايا", Icons.Default.WorkOutline, Modifier.weight(1f))
+          DashboardPill("متابعة الجلسات", Icons.Default.CalendarMonth, Modifier.weight(1f))
+        }
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          DashboardPill("المستندات المحلية", Icons.Default.Lock, Modifier.weight(1f))
+          DashboardPill("تنظيم العملاء", Icons.Default.Groups, Modifier.weight(1f))
+        }
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+          MohamyButton(
+            text = if (showOnboardingCtas) "ابدأ استخدام التطبيق" else "متابعة العمل",
+            icon = Icons.Default.PersonAddAlt1,
+            modifier = Modifier.weight(1f),
+            onClick = onPrimaryClick
+          )
+          MohamyButton(
+            text =
+              if (showOnboardingCtas) {
+                if (hasDemoSeeded) "فتح العرض التجريبي" else "إنشاء مساحة تجريبية"
+              } else {
+                "الإعدادات"
+              },
+            icon = if (showOnboardingCtas) Icons.Default.AutoAwesome else Icons.Default.Settings,
+            modifier = Modifier.weight(1f),
+            style = MohamyButtonStyle.Secondary,
+            onClick = onSecondaryClick
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun DashboardPill(text: String, icon: ImageVector, modifier: Modifier = Modifier) {
+  MohamyCard(
+    modifier = modifier,
+    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 12.dp)
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+      Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Bold
+      )
+    }
+  }
+}
+
+@Composable
 private fun DashboardStatCard(stat: DashboardStat, modifier: Modifier = Modifier) {
-  MohamyCard(modifier = modifier.aspectRatio(1.1f)) {
-    Column(verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize()) {
+  MohamyCard(modifier = modifier.aspectRatio(1.06f)) {
+    Column(
+      verticalArrangement = Arrangement.spacedBy(14.dp),
+      modifier = Modifier.fillMaxSize()
+    ) {
       Box(
-        modifier = Modifier.size(42.dp).background(MohamyGold.copy(alpha = 0.12f), CircleShape),
+        modifier =
+          Modifier.size(MohamyDimens.iconContainer)
+            .background(stat.accent.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
       ) {
-        Icon(stat.icon, contentDescription = null, tint = MohamyGold)
+        Icon(stat.icon, contentDescription = null, tint = stat.accent)
       }
-      Spacer(modifier = Modifier.height(10.dp))
       Text(
         text = stat.value,
         style = MaterialTheme.typography.displayMedium,
         color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.ExtraBold
       )
-      Spacer(modifier = Modifier.height(4.dp))
       Text(
         text = stat.title,
         style = MaterialTheme.typography.bodySmall,
@@ -505,147 +562,82 @@ private fun DashboardStatCard(stat: DashboardStat, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun QuickActionCard(action: QuickAction, modifier: Modifier = Modifier) {
-  MohamyCard(modifier = modifier.clickable { action.onClick() }) {
-    Column(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-      Box(
-        modifier = Modifier.size(46.dp).background(MohamyGold.copy(alpha = 0.14f), CircleShape),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(action.icon, contentDescription = null, tint = MohamyGold)
-      }
-      Text(
-        text = action.title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Bold
-      )
-    }
-  }
-}
-
-@Composable
-private fun WorkspaceWelcomeCard(
-  isWorkspaceEmpty: Boolean,
-  hasDemoSeeded: Boolean,
-  onStartUsing: () -> Unit,
-  onDemoAction: () -> Unit,
-  onSettingsAction: () -> Unit,
+private fun DashboardInfoCard(
+  icon: ImageVector,
+  accent: Color,
+  title: String,
+  subtitle: String,
+  meta: String,
+  badgeText: String,
+  badgeTone: MohamyBadgeTone,
+  onClick: () -> Unit,
 ) {
-  MohamyCard {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-      Box(
-        modifier =
-          Modifier.fillMaxWidth().background(
-            Brush.linearGradient(colors = listOf(MohamyCharcoal, Color(0xFF2B2417))),
-            RoundedCornerShape(26.dp)
-          ).padding(18.dp)
-      ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          Text(
-            text = if (isWorkspaceEmpty) "ابدأ مكتبك الرقمي أو جهّز عرضاً تجريبياً" else "بطاقة ترحيب سريعة للمساحة الحالية",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.ExtraBold
-          )
-          Text(
-            text = "محامي فون يدير القضايا والجلسات والعملاء والمستندات والمهام داخل مساحة محلية خاصة بالمكتب.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-      }
-
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        WelcomePill("إدارة القضايا", Icons.Default.WorkOutline, Modifier.weight(1f))
-        WelcomePill("متابعة الجلسات", Icons.Default.CalendarMonth, Modifier.weight(1f))
-      }
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        WelcomePill("تنظيم العملاء", Icons.Default.Groups, Modifier.weight(1f))
-        WelcomePill("أرشفة المستندات", Icons.Default.Description, Modifier.weight(1f))
-      }
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        WelcomePill("المهام والتنبيهات", Icons.Default.TaskAlt, Modifier.weight(1f))
-        WelcomePill("الخصوصية المحلية", Icons.Default.PrivacyTip, Modifier.weight(1f))
-      }
-
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        MohamyButton(
-          text = "ابدأ استخدام التطبيق",
-          icon = Icons.Default.PersonAddAlt1,
-          modifier = Modifier.weight(1f),
-          onClick = onStartUsing
-        )
-        MohamyButton(
-          text = if (hasDemoSeeded) "فتح العرض التجريبي" else "إنشاء مساحة تجريبية",
-          icon = Icons.Default.AutoAwesome,
-          modifier = Modifier.weight(1f),
-          style = MohamyButtonStyle.Secondary,
-          onClick = onDemoAction
-        )
-      }
-
-      MohamyButton(
-        text = "الإعدادات والملف المهني",
-        icon = Icons.Default.Settings,
-        modifier = Modifier.fillMaxWidth(),
-        style = MohamyButtonStyle.Ghost,
-        onClick = onSettingsAction
-      )
-    }
-  }
-}
-
-@Composable
-private fun WelcomePill(text: String, icon: ImageVector, modifier: Modifier = Modifier) {
-  MohamyCard(modifier = modifier) {
+  MohamyCard(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      horizontalArrangement = Arrangement.spacedBy(14.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       Box(
-        modifier = Modifier.size(36.dp).background(MohamyGold.copy(alpha = 0.14f), CircleShape),
+        modifier =
+          Modifier.size(MohamyDimens.iconContainer)
+            .background(accent.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
       ) {
-        Icon(icon, contentDescription = null, tint = MohamyGold, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
       }
-      Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.SemiBold
-      )
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+          text = title,
+          style = MaterialTheme.typography.titleSmall,
+          color = MaterialTheme.colorScheme.onSurface,
+          fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+          text = subtitle,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+          text = meta,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
+      MohamyStatusBadge(text = badgeText, tone = badgeTone)
     }
   }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-  Text(
-    text = text,
-    style = MaterialTheme.typography.titleMedium,
-    color = MaterialTheme.colorScheme.onBackground,
-    fontWeight = FontWeight.ExtraBold
-  )
+private fun DashboardSectionHeader(title: String, subtitle: String) {
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(
+      text = title,
+      style = MaterialTheme.typography.titleLarge,
+      color = MaterialTheme.colorScheme.onBackground,
+      fontWeight = FontWeight.ExtraBold
+    )
+    Text(
+      text = subtitle,
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+  }
 }
 
-@Preview(showBackground = true, locale = "ar", backgroundColor = 0xFF121212)
+@Preview(showBackground = true, locale = "ar", backgroundColor = 0xFF11110F)
 @Composable
 private fun DashboardShellPreview() {
   MyApplicationTheme(darkTheme = true) {
     DashboardShell(
-      lawyerName = "أستاذ / أستاذة",
+      lawyerName = "الأستاذ المحامي",
       stats =
         listOf(
-          DashboardStat("قضايا نشطة", "12", Icons.Default.WorkOutline),
-          DashboardStat("جلسات اليوم", "3", Icons.Default.Event),
-          DashboardStat("مهام متأخرة", "2", Icons.Default.TaskAlt),
-          DashboardStat("عملاء", "26", Icons.Default.Groups)
+          DashboardStat("قضايا نشطة", "12", Icons.Default.WorkOutline, MohamyGold),
+          DashboardStat("جلسات اليوم", "3", Icons.Default.Event, MohamyInfo),
+          DashboardStat("مهام عاجلة", "2", Icons.Default.TaskAlt, MohamyDanger),
+          DashboardStat("ملفات محلية", "8", Icons.Default.FolderCopy, MohamySuccess)
         ),
       todaySessions =
         listOf(
@@ -692,12 +684,14 @@ private fun DashboardShellPreview() {
         ),
       quickActions =
         listOf(
-          QuickAction("إضافة قضية", Icons.Default.WorkOutline, {}),
-          QuickAction("إضافة عميل", Icons.Default.PersonAddAlt1, {}),
-          QuickAction("إضافة جلسة", Icons.Default.CalendarMonth, {}),
-          QuickAction("إضافة مستند", Icons.AutoMirrored.Filled.InsertDriveFile, {})
+          QuickAction("القضايا", "عرض الملفات النشطة والأرشيف", Icons.Default.WorkOutline, MohamyGold, {}),
+          QuickAction("العملاء", "إدارة الموكلين", Icons.Default.Groups, MohamyInfo, {}),
+          QuickAction("الجلسات", "تنظيم المواعيد", Icons.Default.CalendarMonth, MohamySuccess, {}),
+          QuickAction("المهام", "متابعة الأعمال", Icons.Default.TaskAlt, MohamyDanger, {}),
+          QuickAction("المستندات", "الأرشيف المحلي", Icons.AutoMirrored.Filled.InsertDriveFile, MohamyGoldBright, {}),
+          QuickAction("الخصوصية المحلية", "الأمان والإعدادات", Icons.Default.PrivacyTip, MohamyInfo, {})
         ),
-      showWelcomeCard = true,
+      showOnboardingCtas = true,
       isWorkspaceEmpty = true,
       hasDemoSeeded = false,
       onStartUsing = {},
@@ -705,6 +699,7 @@ private fun DashboardShellPreview() {
       onSettingsAction = {},
       onCasesAction = {},
       onTasksAction = {},
+      onFilesAction = {},
       onSessionClick = {},
       onTaskClick = {},
       onFileClick = {}

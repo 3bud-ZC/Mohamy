@@ -3,6 +3,7 @@ package com.example.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -22,22 +23,23 @@ fun MohamyCard(
   modifier: Modifier = Modifier,
   title: String? = null,
   subtitle: String? = null,
+  contentPadding: PaddingValues = PaddingValues(20.dp),
   content: @Composable ColumnScope.() -> Unit,
 ) {
   Card(
     modifier = modifier,
     shape = RoundedCornerShape(MohamyDimens.cardRadius),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
-    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
   ) {
-    Column(modifier = Modifier.padding(18.dp)) {
+    Column(modifier = Modifier.padding(contentPadding)) {
       if (title != null) {
         Text(
           text = title,
           style = MaterialTheme.typography.titleMedium,
           color = MaterialTheme.colorScheme.onSurface,
-          fontWeight = FontWeight.Bold
+          fontWeight = FontWeight.ExtraBold
         )
       }
       if (subtitle != null) {
@@ -45,7 +47,7 @@ fun MohamyCard(
           text = subtitle,
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
+          modifier = Modifier.padding(top = 8.dp, bottom = 14.dp)
         )
       }
       content()

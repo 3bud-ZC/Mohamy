@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,10 +37,13 @@ fun MohamyEmptyState(
 ) {
   Column(
     horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.spacedBy(12.dp)
+    verticalArrangement = Arrangement.spacedBy(14.dp)
   ) {
     Box(
-      modifier = Modifier.size(72.dp).background(MohamyGold.copy(alpha = 0.15f), CircleShape),
+      modifier =
+        Modifier.size(76.dp)
+          .background(MohamyGold.copy(alpha = 0.14f), CircleShape)
+          .border(1.dp, MohamyGold.copy(alpha = 0.34f), CircleShape),
       contentAlignment = Alignment.Center
     ) {
       Icon(
@@ -60,7 +64,8 @@ fun MohamyEmptyState(
       text = message,
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
-      textAlign = TextAlign.Center
+      textAlign = TextAlign.Center,
+      modifier = Modifier.fillMaxWidth()
     )
     if ((actionText != null && onActionClick != null) || (secondaryActionText != null && onSecondaryActionClick != null)) {
       Row(

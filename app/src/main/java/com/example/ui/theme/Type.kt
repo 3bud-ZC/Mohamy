@@ -32,6 +32,15 @@ val Typography =
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
         lineHeight = 34.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+      ),
+    headlineSmall =
+      TextStyle(
+        fontFamily = TajawalFamily,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 22.sp,
+        lineHeight = 30.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     titleLarge =
       TextStyle(
@@ -46,6 +55,14 @@ val Typography =
         fontWeight = FontWeight.Bold,
         fontSize = 18.sp,
         lineHeight = 26.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+      ),
+    titleSmall =
+      TextStyle(
+        fontFamily = TajawalFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
     bodyLarge =
@@ -76,7 +93,15 @@ val Typography =
       TextStyle(
         fontFamily = TajawalFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+      ),
+    labelMedium =
+      TextStyle(
+        fontFamily = TajawalFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
         lineHeight = 20.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),
@@ -84,7 +109,7 @@ val Typography =
       TextStyle(
         fontFamily = TajawalFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
+        fontSize = 11.sp,
         lineHeight = 18.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
       ),

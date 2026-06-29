@@ -25,7 +25,8 @@ fun Modifier.legalScreenBackground(): Modifier =
         Brush.verticalGradient(
             colors = listOf(
                 MaterialTheme.colorScheme.background,
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f),
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.32f),
                 MaterialTheme.colorScheme.background
             )
         )
@@ -37,7 +38,7 @@ fun Modifier.mohamyHeroBackground(): Modifier =
         Brush.verticalGradient(
             colors = listOf(
                 MohamyBlackSoft,
-                MohamyCharcoalSoft,
+                MohamySurfaceRaised,
                 MaterialTheme.colorScheme.background
             )
         )
@@ -54,15 +55,15 @@ fun ScreenSectionCard(
         shape = RoundedCornerShape(MohamyDimens.cardRadius),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = title,
-                fontSize = 16.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 10.dp)
             )
             content()
         }
