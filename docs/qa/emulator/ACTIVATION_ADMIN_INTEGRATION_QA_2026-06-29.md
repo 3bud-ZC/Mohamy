@@ -2,7 +2,7 @@
 
 ## Scope
 - Repository: `C:\Users\Abud\Desktop\GitHub\MohamyPhone`
-- Goal: verify Android activation contract, deployed API routing, admin/license linkage, contrast adjustments, and APK output without touching signing assets, `applicationId`, or `update/latest.json`.
+- Goal: verify Android activation contract, production deployment on the new VPS, admin/license linkage, and manual APK readiness without touching signing assets, `applicationId`, or `update/latest.json`.
 
 ## URLs Checked
 - Admin root: `https://mohamy.abud.fun`
@@ -27,53 +27,94 @@
   - `phone`
   - `license_key`
 
-## Admin/API Route Checks
-- `GET /` -> `200 OK`
-- `GET /api/health` -> `200 OK`
-- `GET /health` -> fail (`Cannot GET /health`)
-- `GET /api` -> fail (`Cannot GET /api`)
-- `GET /admin` -> fail (`Cannot GET /admin`)
-
-## Production Access Check
-- SSH alias found locally:
-  - `vps-default` -> `root@161.35.54.6`
-- Result of direct SSH auth check on `2026-06-29`:
-  - `Permission denied (publickey)`
-- Consequence:
-  - production app path could not be inspected from this environment
-  - PM2 process name/status could not be confirmed live from this environment
-  - production Nginx site file could not be inspected live from this environment
-  - production `.env` location could not be confirmed live from this environment
-  - production SQLite DB path could not be confirmed live from this environment
-- Conclusion:
-  - production redeploy/restart was **not possible from this session** because the VPS does not accept the configured local key for `root`
-
-## Production Activation Probe
-- Probe route: `POST https://mohamy.abud.fun/api/license/activate`
-- Payload type: harmless invalid credentials only, no destructive action
-- Result: `HTTP 500`
-- Conclusion: production activation failure is confirmed server-side on the deployed backend as of `2026-06-29`; Android cannot be expected to activate successfully against production until that backend is redeployed or repaired.
-
-## Local Runtime Integration Check
-- Result: **PASS**
-- Flow executed locally against `admin-server/src/server.js` with a temporary SQLite DB:
-  - admin login -> pass
-  - create lawyer -> pass
-  - activate by username -> pass
-  - activate by phone -> pass
-- Conclusion: the repo code now supports the required admin -> lawyer -> license -> device activation flow and both admin creation plus mobile activation use the same SQLite-backed data path (`lawyers`, `licenses`, `devices`).
-
-## UI / Contrast Changes Verified In Code
-- Activation field label corrected from an activation-code framing to password-based login wording.
-- Username field clarified to `اسم المستخدم أو رقم الهاتف`.
-- Input borders, notes, hint chips, secondary text, and snackbar colors were darkened/strengthened to improve contrast while preserving the premium gold/black identity.
-
-## Build Validation
+## Local Validation
 - `npm test` -> pass (`15/15`)
 - `npm audit` -> pass (`0 vulnerabilities`)
 - `.\gradlew.bat --% clean :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace` -> **BUILD SUCCESSFUL**
 - Debug APK path:
   - `C:\Users\Abud\Desktop\GitHub\MohamyPhone\app\build\outputs\apk\debug\app-debug.apk`
+
+## Production Access Check
+- Old VPS was not used:
+  - `161.35.54.6` is deleted
+- New VPS used:
+  - public IP: `167.99.157.6`
+  - SSH user: `root`
+  - domain kept unchanged: `mohamy.abud.fun`
+- Direct production SSH inspection on `2026-06-29` succeeded.
+- Server baseline:
+  - OS: `Ubuntu 24.04.3 LTS`
+  - Nginx: `1.24.0`
+  - Node.js: `20.20.2`
+  - PM2: `7.0.1`
+
+## Production Deployment State
+- Deployment path:
+  - `/var/www/mohamy-phone-admin`
+- Current symlink target:
+  - `/var/www/mohamy-phone-admin/releases/20260629204100`
+- Backup path created before change:
+  - `/var/www/mohamy-phone-admin/backups/20260629203820`
+- PM2 process:
+  - name: `mohamy-phone-admin`
+  - status: `online`
+  - exec cwd: `/var/www/mohamy-phone-admin/releases/20260629204100/admin-server`
+- Internal app port:
+  - `3130`
+- Nginx site path:
+  - `/etc/nginx/sites-available/mohamy.abud.fun`
+- SSL/domain status:
+  - `https://mohamy.abud.fun` active
+  - Certbot-managed certificate still present and valid for the domain
+- Production env/data preservation:
+  - `.env` reused from `/var/www/mohamy-phone-admin/shared/.env`
+  - SQLite DB preserved at `/var/www/mohamy-phone-admin/shared/data/license.sqlite`
+
+## Admin/API Route Checks
+- `GET /` -> `200 OK`
+- `GET /api/health` -> `200 OK`
+- `nginx -t` -> success
+
+## Invalid Activation Probe
+- Probe route:
+  - `POST https://mohamy.abud.fun/api/license/activate`
+- Payload type:
+  - harmless invalid credentials only
+- Result after redeploy:
+  - HTTP `401`
+  - controlled Arabic invalid-credentials message
+- Conclusion:
+  - the previous production activation failure is resolved
+  - invalid credentials no longer trigger `HTTP 500`
+
+## Live Test Lawyer Account
+- Account prepared on production:
+  - name: `Test Lawyer`
+  - username: `test1`
+  - phone: `01000000000`
+  - password: `123456`
+  - status: `active`
+  - license status: `active`
+  - max devices: `1`
+  - expiry: empty / no expiry
+
+## Live Activation Verification
+- Verification route:
+  - `POST https://mohamy.abud.fun/api/license/activate`
+- Payload:
+  - `username: test1`
+  - `password: 123456`
+  - `device_id: manual-test-device-001`
+  - `device_name: BlueStacks Manual Test`
+  - `platform: android`
+  - `app_version: 1.8.1-debug`
+- Result:
+  - HTTP `200`
+  - token returned
+  - `lawyer_name` returned
+  - license fields returned
+- Confirmed payload shape:
+  - no cases/files/tasks are sent to the server by this activation route
 
 ## APK Install Commands For Manual Test
 - Normal reinstall:
@@ -82,35 +123,28 @@
   - `adb uninstall com.aistudio.mohamyphone.lylawar`
   - `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 
-## Emulator / Device Result
-- The newer UI polish run already confirmed a healthy emulator install path and activation-screen capture from the rebuilt debug APK.
-- A full live activation replay still could not be executed in this pass because the production backend remains broken and no live account could be created from this environment.
-
-## Screenshots
-- Activation-screen UI evidence exists from the rebuilt debug APK in:
-  - `docs/qa/emulator/ui-polish-2026-06-29-final.png`
-  - `docs/qa/emulator/ui-polish-2026-06-29-final.xml`
-- Live post-login activation evidence is still pending.
+## Manual Test Credentials
+- username: `test1`
+- password: `123456`
 
 ## Pass / Fail Conclusion
-- Repo code fix: **PASS**
-- Local admin/license integration: **PASS**
-- Android build + APK generation: **PASS**
-- Live production activation on deployed backend: **FAIL / PENDING**
-- Production redeploy/restart from this environment: **BLOCKED**
-- Reason:
-  - deployed `POST /api/license/activate` still returns `HTTP 500`
-  - the current machine does not have an accepted VPS SSH credential
-  - no production admin session was available here to create the requested live test account
+- Repo activation/admin fix: **PASS**
+- Production redeploy on the new VPS: **PASS**
+- Production invalid activation handling: **PASS**
+- Production live test activation: **PASS**
+- Android build + debug APK generation: **PASS**
+- Manual BlueStacks / real-device post-login smoke: **PENDING**
 
 ## Remaining Work
-- Gain working VPS access for `mohamy.abud.fun` or redeploy the fixed `admin-server` externally.
-- Verify the production PM2 process and restart the correct app after deployment.
-- Confirm the invalid activation probe no longer returns `HTTP 500`.
-- Create the live test account:
-  - name: `Test Lawyer`
-  - username: `test1`
-  - phone: `01000000000`
-  - password: `123456`
-- Install the debug APK and repeat activation on a real device or healthy emulator.
-- Capture the final success/failure screenshot set here after that retest.
+- Install the rebuilt debug APK on BlueStacks or a real device and verify the live login with `test1 / 123456`.
+- Capture the final success screenshot set for:
+  - dashboard
+  - cases
+  - clients
+  - sessions
+  - tasks
+  - files
+  - settings
+- Refresh `admin-server/package-lock.json` before the next VPS deploy because the VPS required `npm install --omit=dev` fallback after `npm ci` failed on lockfile drift.
+- Watch VPS disk usage:
+  - root filesystem has about `3.8G` free (`94%` used)
