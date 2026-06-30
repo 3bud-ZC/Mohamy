@@ -86,6 +86,8 @@
 - Smarter file/document handling:
   - Added a "المستندات المطلوبة" section in `CaseDetailsScreen` based on `CaseRulesEngine`.
   - Highlights missing required documents for the case type and offers a quick attach button.
+- Better app capabilities:
+  - `CaseCard` now shows a color-coded readiness progress bar below the score label.
 - Files changed in this run:
   - `app/src/main/java/com/example/ui/components/ClientCard.kt`
   - `app/src/main/java/com/example/ui/components/CaseCard.kt`
