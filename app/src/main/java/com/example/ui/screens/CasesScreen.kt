@@ -576,6 +576,14 @@ fun CaseDetailsScreen(
             CaseDetailLine("الجلسة القادمة", legalCase.nextSessionDate, Icons.Default.CalendarToday)
         }
 
+
+        CaseMissingDocumentsSection(
+            legalCase = legalCase,
+            caseFiles = caseFiles,
+            fileImportLauncher = fileImportLauncher,
+            modifier = Modifier.fillMaxWidth()
+        )
+
         CaseInfoSection(
             title = "مساعد القضية",
             subtitle = "أدوات محلية سريعة لتنظيم الملف دون اتصال"
@@ -1496,6 +1504,63 @@ fun CaseDetailsScreen(
     }
 }
 
+
+@Composable
+private fun CaseMissingDocumentsSection(
+    legalCase: LegalCase,
+    caseFiles: List<CaseFile>,
+    fileImportLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    modifier: Modifier = Modifier
+) {
+    val rules = remember(legalCase.caseType) { CaseRulesEngine.getRules(legalCase.caseType) { it } }
+    val required = rules.requiredDocuments
+    if (required.isEmpty()) return
+    val missing = required.filter { doc ->
+        !caseFiles.any { file ->
+            file.fileName.contains(doc, ignoreCase = true) ||
+                file.docType.contains(doc, ignoreCase = true)
+        }
+    }
+    if (missing.isEmpty()) return
+
+    CaseInfoSection(
+        title = "المستندات المطلوبة",
+        subtitle = "نواقص محتملة لهذا النوع من القضايا",
+        modifier = modifier
+    ) {
+        missing.forEach { doc ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = doc,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = { fileImportLauncher.launch("*/*") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("إرفاق مستند", fontSize = 13.sp)
+        }
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaseAddEditScreen(

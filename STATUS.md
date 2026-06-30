@@ -83,6 +83,9 @@
   - Improved fee overdue logic to honor due date.
   - Added daily office summary notification.
   - Better notification messages with context.
+- Smarter file/document handling:
+  - Added a "المستندات المطلوبة" section in `CaseDetailsScreen` based on `CaseRulesEngine`.
+  - Highlights missing required documents for the case type and offers a quick attach button.
 - Files changed in this run:
   - `app/src/main/java/com/example/ui/components/ClientCard.kt`
   - `app/src/main/java/com/example/ui/components/CaseCard.kt`
@@ -91,6 +94,7 @@
   - `app/src/main/java/com/example/ui/screens/DashboardScreen.kt`
   - `app/src/main/java/com/example/ui/screens/SettingsScreen.kt`
   - `app/src/main/java/com/example/ui/screens/SmartAssistantScreen.kt`
+  - `app/src/main/java/com/example/ui/screens/CasesScreen.kt`
   - `app/src/main/java/com/example/worker/NotificationWorker.kt`
   - `STATUS.md`
 - No changes were made to:
