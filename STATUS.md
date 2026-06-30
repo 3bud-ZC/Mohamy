@@ -5,7 +5,7 @@
 - Android app: 100%
 - Admin server code: 100%
 - Production activation/admin integration: 100%
-- UI/UX premium polish: 99% (compactness, settings simplification, assistant upgrade, notifications; manual screenshot QA pending)
+- UI/UX premium polish: 99% (settings restoration, compactness, assistant upgrade, notifications; manual screenshot QA pending)
 - Testing: 99% (local build/tests pass; full manual post-login APK smoke is still pending)
 - Commercial readiness: 100%
 
@@ -23,6 +23,7 @@
 - Android activation still posts to `POST /api/license/activate`.
 - `applicationId`, signing configuration, and `update/latest.json` were **not modified**.
 - Local validation re-ran successfully on `2026-06-30`:
+  - `\gradlew :app:compileDebugKotlin` -> **BUILD SUCCESSFUL** (SettingsScreen reorganized)
   - `\gradlew :app:testDebugUnitTest` -> **BUILD SUCCESSFUL**
   - `\gradlew :app:assembleDebug` -> **BUILD SUCCESSFUL**
   - `\gradlew :app:assembleRelease` -> **BUILD SUCCESSFUL**
@@ -72,7 +73,15 @@
   - `ClientCard`, `CaseCard`, `FileDocumentCard`: reduced padding, lower elevation, tighter meta rows, file-type icons.
   - `DashboardScreen`: stat cards are now horizontal/compact; info cards are smaller.
   - `QuickActionTile`: reduced height and padding.
-  - `SettingsScreen`: simplified default view with an "Advanced mode" toggle hiding update/backup/app-info technical sections.
+  - `SettingsScreen`: restored and reorganized into professional commercial sections:
+    - `الحساب والمكتب` - lawyer/office/phone/bar number, save locally.
+    - `الترخيص والتفعيل` - license status, account code, logout with confirmation.
+    - `الإشعارات` - phone notification permission, session/task reminders, daily summary.
+    - `البيانات المحلية` - create backup, restore backup with confirmation, file recovery, data export, open files library.
+    - `المظهر والمساعد` - dark mode, cloud assistant, smart assistant.
+    - `الحقوق والخصوصية` - rights dialog, privacy/about dialog, support link, local-first privacy bullets.
+    - `أدوات متقدمة` - demo data, welcome card, technical updates (advanced mode only).
+    - Advanced mode retained only for technical/demo tools; normal user actions are always visible.
 - Smart Assistant upgrade:
   - Replaced hardcoded colors with theme-aware palette.
   - Added structured response formatting (headers, bullets, bold markdown, emojis).
@@ -152,8 +161,7 @@
 
 ## Commands Run
 - `git status --short --branch`
-- `.\gradlew.bat --% :app:testDebugUnitTest --no-daemon --stacktrace`
-- `.\gradlew.bat --% :app:assembleDebug --no-daemon --stacktrace`
+- `.\gradlew.bat --% :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace`
 - `.\gradlew.bat --% :app:assembleRelease --no-daemon --stacktrace`
 - `npm --prefix admin-server test`
 - `npm --prefix admin-server audit`

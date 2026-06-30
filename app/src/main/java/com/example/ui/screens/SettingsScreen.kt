@@ -25,19 +25,28 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Copyright
 import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.RestorePage
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.SmartButton
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.AlertDialog
@@ -125,6 +134,49 @@ fun SettingsScreen(
     var cloudAssistantEnabled by remember(viewModel.isCloudAssistantEnabled) { mutableStateOf(viewModel.isCloudAssistantEnabled) }
     var showDemoSeedDialog by remember { mutableStateOf(false) }
     var showAdvanced by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+    var showRightsDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            title = { Text("تأكيد تسجيل الخروج") },
+            text = { Text("سيحفظ التطبيق مساحة العمل الحالية محلياً ثم يعيدك إلى شاشة التفعيل. هل تريد المتابعة؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutConfirm = false
+                        viewModel.logout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("تسجيل الخروج") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirm = false }) { Text("إلغاء") }
+            }
+        )
+    }
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRestoreConfirm = false },
+            title = { Text("تحذير: استعادة نسخة احتياطية") },
+            text = { Text("ستستبدل البيانات الحالية بمحتوى ملف النسخة. أنصح بحفظ نسخة من البيانات الحالية أولاً. هل تريد المتابعة؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRestoreConfirm = false
+                        viewModel.navigateTo(Screen.BackupRestore)
+                    }
+                ) { Text("متابعة") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreConfirm = false }) { Text("إلغاء") }
+            }
+        )
+    }
 
     if (showDemoSeedDialog) {
         AlertDialog(
@@ -183,25 +235,10 @@ fun SettingsScreen(
         )
 
         SettingsSection(
-            title = "الحساب والترخيص",
-            subtitle = "بيانات المكتب المحلي وحالة التفعيل الحالية.",
-            icon = Icons.Default.VerifiedUser
+            title = "الحساب والمكتب",
+            subtitle = "بيانات المكتب المحفوظة محلياً على هذا الجهاز.",
+            icon = Icons.Default.Business
         ) {
-            SettingsActionRow(
-                title = "حالة الترخيص",
-                subtitle = "التفعيل المحلي الحالي لهذه النسخة",
-                icon = Icons.Default.Shield,
-                badgeText = statusLabel,
-                badgeTone = licenseStatusTone(statusLabel)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
-                title = "رمز الحساب",
-                subtitle = license?.username ?: "غير متاح حالياً",
-                icon = Icons.Default.VpnKey
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-
             OutlinedTextField(
                 value = lawyerName,
                 onValueChange = { lawyerName = it },
@@ -248,16 +285,43 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { viewModel.saveLawOfficeProfile(lawyerName, officeName, phone, barNumber) }
             )
+        }
 
+        SettingsSection(
+            title = "الترخيص والتفعيل",
+            subtitle = "حالة الترخيص الحالية والتحكم في الحساب.",
+            icon = Icons.Default.VerifiedUser
+        ) {
+            SettingsActionRow(
+                title = "حالة الترخيص",
+                subtitle = "التفعيل المحلي الحالي لهذه النسخة",
+                icon = Icons.Default.Shield,
+                badgeText = statusLabel,
+                badgeTone = licenseStatusTone(statusLabel)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "رمز الحساب",
+                subtitle = license?.username ?: "غير متاح حالياً",
+                icon = Icons.Default.VpnKey
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "تسجيل الخروج",
+                subtitle = "يحفظ مساحة العمل الحالية محلياً ثم يعيدك إلى شاشة التفعيل",
+                icon = Icons.Default.PowerSettingsNew,
+                badgeText = "تنبيه",
+                badgeTone = MohamyBadgeTone.Danger,
+                onClick = { showLogoutConfirm = true }
+            )
             if (showAdvanced) {
                 Spacer(modifier = Modifier.height(16.dp))
                 SettingsActionDivider()
                 Spacer(modifier = Modifier.height(16.dp))
-
                 OutlinedTextField(
                     value = serverUrl,
                     onValueChange = { serverUrl = it },
-                    label = { Text("رابط سيرفر التراخيص") },
+                    label = { Text("رابط سيرفر التراخيص (متقدم)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -265,7 +329,7 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "الرابط الافتراضي الموصى به: https://mohamy.abud.fun",
+                    "الرابط الافتراضي: https://mohamy.abud.fun",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -282,10 +346,47 @@ fun SettingsScreen(
 
         if (showAdvanced) {
             SettingsSection(
-                title = "التحديثات",
-                subtitle = "فحص النسخة المنشورة من GitHub دون المساس بإعدادات التوقيع أو ملفات النشر.",
-                icon = Icons.Default.Sync
+                title = "أدوات متقدمة",
+                subtitle = "تحديثات تقنية، بيانات تجريبية، وإعادة بطاقة الترحيب. للاستخدام المتخصص فقط.",
+                icon = Icons.Default.Settings
             ) {
+            SettingsActionRow(
+                title = if (viewModel.hasDemoSeededForCurrentWorkspace) "فتح العرض التجريبي" else "إضافة بيانات تجريبية",
+                subtitle =
+                    if (viewModel.hasDemoSeededForCurrentWorkspace) {
+                        "تم إنشاء العرض التجريبي مسبقاً داخل هذه المساحة"
+                    } else if (hasWorkspaceData) {
+                        "لن يتم حذف بياناتك الحالية"
+                    } else {
+                        "ينشئ عرضاً محلياً آمناً ببيانات وهمية واضحة"
+                    },
+                icon = Icons.Default.AutoAwesome,
+                badgeText = "محلي فقط",
+                badgeTone = MohamyBadgeTone.Gold,
+                onClick = {
+                    when {
+                        viewModel.hasDemoSeededForCurrentWorkspace -> viewModel.navigateTo(Screen.CasesList)
+                        hasWorkspaceData -> showDemoSeedDialog = true
+                        else -> viewModel.seedDemoWorkspace()
+                    }
+                }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "إعادة عرض بطاقة الترحيب",
+                subtitle = "إعادة عرض شاشة البداية للتعريف بالتطبيق",
+                icon = Icons.AutoMirrored.Filled.Redo,
+                onClick = { viewModel.reopenOnboarding() }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "التحديثات التقنية",
+                subtitle = "فحص النسخة المنشورة من GitHub",
+                icon = Icons.Default.Sync,
+                badgeText = updateBadgeText(viewModel),
+                badgeTone = updateBadgeTone(viewModel)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
             SettingsActionRow(
                 title = "النسخة المثبتة",
                 subtitle = "${BuildConfig.VERSION_NAME} · code ${BuildConfig.VERSION_CODE}",
@@ -436,58 +537,16 @@ fun SettingsScreen(
                 )
             }
         }
+        }
 
         SettingsSection(
-            title = "النسخ والبيانات",
-            subtitle = "النسخ الاحتياطي والاستيراد والإشعارات اليومية الخاصة بالجلسات والمهام.",
-            icon = Icons.Default.Backup
+            title = "الإشعارات",
+            subtitle = "تنبيهات الجلسات والمهام والملخص اليومي.",
+            icon = Icons.Default.Notifications
         ) {
             SettingsActionRow(
-                title = "إدارة النسخ الاحتياطي",
-                subtitle = "إنشاء نسخة محلية أو استعادة قاعدة البيانات من شاشة مخصصة",
-                icon = Icons.Default.Backup,
-                onClick = { viewModel.navigateTo(Screen.BackupRestore) }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
-                title = "استيراد بيانات",
-                subtitle = "نقل بيانات قانونية أو أرشيف قديم إلى التطبيق المحلي",
-                icon = Icons.Default.DataObject,
-                onClick = { viewModel.navigateTo(Screen.ImportData) }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
-                title = if (viewModel.hasDemoSeededForCurrentWorkspace) "فتح العرض التجريبي" else "إضافة بيانات تجريبية",
-                subtitle =
-                    if (viewModel.hasDemoSeededForCurrentWorkspace) {
-                        "تم إنشاء العرض التجريبي مسبقاً داخل هذه المساحة"
-                    } else if (hasWorkspaceData) {
-                        "لن يتم حذف بياناتك الحالية"
-                    } else {
-                        "ينشئ عرضاً محلياً آمناً ببيانات وهمية واضحة"
-                    },
-                icon = Icons.Default.AutoAwesome,
-                badgeText = "محلي فقط",
-                badgeTone = MohamyBadgeTone.Gold,
-                onClick = {
-                    when {
-                        viewModel.hasDemoSeededForCurrentWorkspace -> viewModel.navigateTo(Screen.CasesList)
-                        hasWorkspaceData -> showDemoSeedDialog = true
-                        else -> viewModel.seedDemoWorkspace()
-                    }
-                }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
-                title = "إعادة عرض بطاقة الترحيب",
-                subtitle = "مفيد لتقديم التطبيق للمحامين أو مراجعة خطوات البداية",
-                icon = Icons.AutoMirrored.Filled.Redo,
-                onClick = { viewModel.reopenOnboarding() }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
                 title = if (notificationsEnabled) "إشعارات الهاتف مفعلة" else "إشعارات الهاتف غير مفعلة",
-                subtitle = "تنبيهات للتحديثات والمستندات والنسخ الاحتياطي",
+                subtitle = "إذن التطبيق لإظهار التنبيهات على الجهاز",
                 icon = Icons.Default.Notifications,
                 badgeText = if (notificationsEnabled) "مفعلة" else "غير مفعلة",
                 badgeTone = if (notificationsEnabled) MohamyBadgeTone.Success else MohamyBadgeTone.Danger,
@@ -510,8 +569,8 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(10.dp))
             SettingsActionRow(
                 title = "تذكير بالجلسات والمهام",
-                subtitle = "فحص يومي للجلسات القريبة والمهام المتأخرة والتنبيهات المهمة",
-                icon = Icons.Default.Notifications,
+                subtitle = "فحص يومي للجلسات القريبة والمهام المتأخرة والرسوم المستحقة",
+                icon = Icons.Default.Today,
                 trailing = {
                     Switch(
                         checked = viewModel.isRemindersEnabled,
@@ -519,6 +578,79 @@ fun SettingsScreen(
                     )
                 }
             )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "الملخص اليومي",
+                subtitle = "إشعار صباحي بموجز الجلسات والمهام والمستحقات المالية",
+                icon = Icons.Default.SmartButton,
+                trailing = {
+                    Switch(
+                        checked = viewModel.isRemindersEnabled,
+                        onCheckedChange = { viewModel.updateRemindersEnabled(it) }
+                    )
+                }
+            )
+        }
+
+        SettingsSection(
+            title = "البيانات المحلية",
+            subtitle = "النسخ الاحتياطي والاسترداد والتصدير. بيانات القضايا والملفات تبقى محفوظة محلياً على جهازك.",
+            icon = Icons.Default.Backup
+        ) {
+            SettingsActionRow(
+                title = "إنشاء نسخة احتياطية",
+                subtitle = "حفظ قاعدة البيانات والمرفقات في ملف .mpb واحد",
+                icon = Icons.Default.Backup,
+                onClick = { viewModel.navigateTo(Screen.BackupRestore) }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "استعادة نسخة احتياطية",
+                subtitle = "استيراد ملف .mpb محفوظ محلياً (يستبدل البيانات الحالية)",
+                icon = Icons.Default.RestorePage,
+                badgeText = "تنبيه",
+                badgeTone = MohamyBadgeTone.Danger,
+                onClick = { showRestoreConfirm = true }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "استرداد الملفات",
+                subtitle = "عرض الملفات المحفوظة داخل مساحة التطبيق وإصلاح المراجع المفقودة (قريباً)",
+                icon = Icons.Default.FolderOpen,
+                onClick = { viewModel.navigateTo(Screen.FilesLibrary) }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "تصدير البيانات",
+                subtitle = "استيراد أرشيف قديم أو تصدير بيانات قانونية من/إلى التطبيق المحلي",
+                icon = Icons.Default.DataObject,
+                onClick = { viewModel.navigateTo(Screen.ImportData) }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "فتح مكتبة المستندات",
+                subtitle = "استعراض الملفات والمستندات المرتبطة بالقضايا",
+                icon = Icons.Default.ContentCopy,
+                onClick = { viewModel.navigateTo(Screen.FilesLibrary) }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+            ) {
+                Text(
+                    text = "بيانات القضايا والملفات تبقى محفوظة محلياً على جهازك.",
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+            }
         }
 
         SettingsSection(
@@ -574,10 +706,38 @@ fun SettingsScreen(
         }
 
         SettingsSection(
-            title = "البيانات والأمان",
-            subtitle = "ملخص الخصوصية والاستخدام الشبكي الحالي لهذه النسخة المحلية.",
+            title = "الحقوق والخصوصية",
+            subtitle = "بياناتك القانونية تبقى على الجهاز، وحقوق الاستخدام والخصوصية متاحة بشكل واضح.",
             icon = Icons.Default.Security
         ) {
+            SettingsActionRow(
+                title = "حقوقي",
+                subtitle = "شروط الاستخدام وحقوق المحامي في استخدام التطبيق",
+                icon = Icons.Default.Gavel,
+                onClick = { showRightsDialog = true }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "سياسة الخصوصية",
+                subtitle = "كيفية التعامل مع البيانات المحلية والاتصال الشبكي",
+                icon = Icons.Default.Shield,
+                onClick = { showAboutDialog = true }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "عن التطبيق",
+                subtitle = "MohamyPhone · الإصدار ${BuildConfig.VERSION_NAME}",
+                icon = Icons.Default.Info,
+                onClick = { showAboutDialog = true }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            SettingsActionRow(
+                title = "التواصل والدعم",
+                subtitle = "الموقع الرسمي: abud.fun",
+                icon = Icons.Default.Email,
+                onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://abud.fun"))) }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             PrivacyBullet("البيانات تبقى على الهاتف فقط.")
             PrivacyBullet("الاتصال الشبكي يستخدم فقط لتنشيط الترخيص والتحقق من التحديثات عند الحاجة.")
             PrivacyBullet(
@@ -592,66 +752,13 @@ fun SettingsScreen(
             )
             PrivacyBullet("الملفات الأصلية وقاعدة البيانات المحلية لا يتم رفعها من التطبيق.")
         }
+    }
 
-        SettingsSection(
-            title = "معلومات التطبيق",
-            subtitle = "الهوية التجارية وبيانات النسخة الحالية داخل الجهاز.",
-            icon = Icons.Default.AccountBalance
-        ) {
-            SettingsActionRow(
-                title = "محامي فون",
-                subtitle = "نظام تشغيل محلي لإدارة القضايا والموكلين والمستندات.",
-                icon = Icons.Default.Badge
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
-                title = "المطور",
-                subtitle = "حقوق المهندس عبدالله ال علي",
-                icon = Icons.Default.VerifiedUser
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            SettingsActionRow(
-                title = "الموقع الرسمي",
-                subtitle = "abud.fun",
-                icon = Icons.Default.Language,
-                onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://abud.fun"))) }
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                )
-            ) {
-                Text(
-                    text = "versionName=${BuildConfig.VERSION_NAME}\nversionCode=${BuildConfig.VERSION_CODE}\nbuildTime=${BuildConfig.BUILD_TIMESTAMP}",
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 18.sp
-                )
-            }
-        }
-
-        }
-
-        SettingsSection(
-            title = "الصيانة والخروج",
-            subtitle = "إجراءات واضحة للمستخدم دون تغيير أي منطق إصدار أو نشر.",
-            icon = Icons.Default.PowerSettingsNew
-        ) {
-            SettingsActionRow(
-                title = "تسجيل الخروج",
-                subtitle = "يحفظ مساحة الحساب الحالية محلياً ثم يعيدك إلى شاشة التفعيل",
-                icon = Icons.Default.PowerSettingsNew,
-                badgeText = "تنبيه",
-                badgeTone = MohamyBadgeTone.Danger,
-                onClick = { viewModel.logout() }
-            )
-        }
+    if (showRightsDialog) {
+        RightsDialog(onDismiss = { showRightsDialog = false })
+    }
+    if (showAboutDialog) {
+        AboutDialog(onDismiss = { showAboutDialog = false })
     }
 }
 
@@ -820,3 +927,102 @@ private fun remoteVersionLabel(viewModel: AppViewModel): String =
             "code ${viewModel.updateRemoteVersionCode}"
         else -> "لا توجد نسخة جديدة"
     }
+
+@Composable
+private fun RightsDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("حقوقي - شروط الاستخدام") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "تطبيق MohamyPhone هو أداة محلية لإدارة القضايا والموكلين والمستندات. يساعدك في تنظيم العمل القانوني داخل مكتبك، ولا يقدم رأياً قانونياً نهائياً أو استشارة قضائية ملزمة.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "• جميع بيانات القضايا والملفات تُحفظ محلياً على جهازك.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "• التطبيق لا يقوم تلقائياً برفع ملفاتك أو قاعدة بياناتك إلى أي سيرفر.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "• المستخدم مسؤول عن الاحتفاظ بنسخ احتياطية من بياناته المهمة.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "• حقوق التطوير والتصميم محفوظة. يُمنع إعادة النشر أو البيع غير المصرح به.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("فهمت") }
+        }
+    )
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("عن التطبيق") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Default.Copyright,
+                    contentDescription = null,
+                    tint = MohamyGold,
+                    modifier = Modifier.size(48.dp)
+                )
+                Text(
+                    "MohamyPhone",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "إصدار ${BuildConfig.VERSION_NAME} · بناء ${BuildConfig.VERSION_CODE}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "نظام محلي لإدارة القضايا والموكلين والمستندات. صُمم ليعمل في بيئة عمل المحاماة دون الحاجة لإرسال البيانات الحساسة للسحابة.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "سياسة الخصوصية المختصرة:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "القضايا والملفات والبيانات المحلية تبقى على جهازك. الاتصال الشبكي يقتصر على تنشيط الترخيص والتحقق من التحديثات. لا يتم رفع ملفات القضايا للسيرفر.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("إغلاق") }
+        }
+    )
+}
