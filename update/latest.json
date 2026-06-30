@@ -1,8 +1,8 @@
 {
-  "versionCode": 13,
-  "versionName": "1.8.1",
-  "title": "Mohamy Phone 1.8.1",
-  "notes": "# Mohamy Phone 1.8.1\n\nTag: `v1.8.1`\n\n- chore: prepare v1.8.1 hotfix release\n- fix: prevent update prompt ANR\n- Update release manifest for v1.8.0",
-  "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.8.1/app-release.apk",
-  "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.8.1"
+  "versionCode": 14,
+  "versionName": "1.8.2",
+  "title": "Mohamy Phone 1.8.2",
+  "notes": "# Mohamy Phone 1.8.2\n\nTag: `v1.8.2`\n\n- chore: bump version to 1.8.2 (14)\n- docs: note launcher icon replacement in STATUS.md\n- chore: replace app launcher icon with new MohamyPhone icon\n- fix: restore essential settings actions\n- Add readiness progress bar to CaseCard\n- Add missing-documents checklist to CaseDetailsScreen\n- UI/UX polish, Smart Assistant upgrade, and notification improvements\n- style: refine premium light theme\n- docs: verify new VPS activation deployment\n- docs: verify production activation deployment\n- style: polish premium legal app UI\n- fix: connect activation to admin licensing",
+  "apkUrl": "https://github.com/3bud-ZC/Mohamy/releases/download/v1.8.2/app-release.apk",
+  "releasePageUrl": "https://github.com/3bud-ZC/Mohamy/releases/tag/v1.8.2"
 }
