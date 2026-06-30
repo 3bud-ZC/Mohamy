@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.theme.MohamyGold
 import com.example.ui.theme.MyApplicationTheme
 import androidx.compose.material.icons.Icons
@@ -44,29 +45,29 @@ fun QuickActionTile(
     modifier =
       modifier
         .fillMaxWidth()
-        .height(122.dp)
+        .height(104.dp)
         .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(22.dp))
         .border(
           1.dp,
-          MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.82f else 0.95f),
+          MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (dark) 0.62f else 0.75f),
           RoundedCornerShape(22.dp)
         )
         .clickable(onClick = onClick)
-        .padding(18.dp)
+        .padding(16.dp)
   ) {
     Column(
       modifier = Modifier.fillMaxWidth(),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
+      verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
       Box(
         modifier =
           Modifier
-            .size(38.dp)
-            .background(accent.copy(alpha = accentAlpha), RoundedCornerShape(14.dp))
-            .border(1.dp, accent.copy(alpha = accentBorderAlpha), RoundedCornerShape(14.dp)),
+            .size(36.dp)
+            .background(accent.copy(alpha = accentAlpha), RoundedCornerShape(12.dp))
+            .border(1.dp, accent.copy(alpha = accentBorderAlpha), RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
       ) {
-        Icon(imageVector = icon, contentDescription = null, tint = accent)
+        Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
       }
       Text(
         text = title,
@@ -79,7 +80,8 @@ fun QuickActionTile(
           text = subtitle,
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 2
+          maxLines = 2,
+          lineHeight = 17.sp
         )
       }
     }

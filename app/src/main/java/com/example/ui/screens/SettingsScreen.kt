@@ -124,6 +124,7 @@ fun SettingsScreen(
     var serverUrl by remember(viewModel.licenseServerUrlInput) { mutableStateOf(viewModel.licenseServerUrlInput) }
     var cloudAssistantEnabled by remember(viewModel.isCloudAssistantEnabled) { mutableStateOf(viewModel.isCloudAssistantEnabled) }
     var showDemoSeedDialog by remember { mutableStateOf(false) }
+    var showAdvanced by remember { mutableStateOf(false) }
 
     if (showDemoSeedDialog) {
         AlertDialog(
@@ -167,9 +168,23 @@ fun SettingsScreen(
             statusLabel = statusLabel
         )
 
+        SettingsActionRow(
+            title = if (showAdvanced) "الوضع المتقدم: مفعل" else "الوضع المتقدم: معطل",
+            subtitle = "إظهار خيارات التحديثات والنسخ الاحتياطي والرابط التقني والمعلومات الإضافية.",
+            icon = Icons.Default.Settings,
+            badgeText = if (showAdvanced) "مفعل" else "مخفي",
+            badgeTone = if (showAdvanced) MohamyBadgeTone.Success else MohamyBadgeTone.Neutral,
+            trailing = {
+                Switch(
+                    checked = showAdvanced,
+                    onCheckedChange = { showAdvanced = it }
+                )
+            }
+        )
+
         SettingsSection(
             title = "الحساب والترخيص",
-            subtitle = "بيانات المكتب المحلي ورابط التفعيل وحالة الحساب الحالية.",
+            subtitle = "بيانات المكتب المحلي وحالة التفعيل الحالية.",
             icon = Icons.Default.VerifiedUser
         ) {
             SettingsActionRow(
@@ -234,40 +249,43 @@ fun SettingsScreen(
                 onClick = { viewModel.saveLawOfficeProfile(lawyerName, officeName, phone, barNumber) }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-            SettingsActionDivider()
-            Spacer(modifier = Modifier.height(16.dp))
+            if (showAdvanced) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsActionDivider()
+                Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it },
-                label = { Text("رابط سيرفر التراخيص") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = mohamyOutlinedTextColors()
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                "الرابط الافتراضي الموصى به: https://mohamy.abud.fun",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            MohamyButton(
-                text = "حفظ رابط السيرفر",
-                icon = Icons.Default.Settings,
-                modifier = Modifier.fillMaxWidth(),
-                style = MohamyButtonStyle.Secondary,
-                onClick = { viewModel.saveLicenseServerUrl(serverUrl) }
-            )
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = { serverUrl = it },
+                    label = { Text("رابط سيرفر التراخيص") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = mohamyOutlinedTextColors()
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "الرابط الافتراضي الموصى به: https://mohamy.abud.fun",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                MohamyButton(
+                    text = "حفظ رابط السيرفر",
+                    icon = Icons.Default.Settings,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MohamyButtonStyle.Secondary,
+                    onClick = { viewModel.saveLicenseServerUrl(serverUrl) }
+                )
+            }
         }
 
-        SettingsSection(
-            title = "التحديثات",
-            subtitle = "فحص النسخة المنشورة من GitHub دون المساس بإعدادات التوقيع أو ملفات النشر.",
-            icon = Icons.Default.Sync
-        ) {
+        if (showAdvanced) {
+            SettingsSection(
+                title = "التحديثات",
+                subtitle = "فحص النسخة المنشورة من GitHub دون المساس بإعدادات التوقيع أو ملفات النشر.",
+                icon = Icons.Default.Sync
+            ) {
             SettingsActionRow(
                 title = "النسخة المثبتة",
                 subtitle = "${BuildConfig.VERSION_NAME} · code ${BuildConfig.VERSION_CODE}",
@@ -616,6 +634,8 @@ fun SettingsScreen(
                     lineHeight = 18.sp
                 )
             }
+        }
+
         }
 
         SettingsSection(

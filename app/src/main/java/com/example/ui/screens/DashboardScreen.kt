@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.data.AppViewModel
@@ -548,30 +548,33 @@ private fun DashboardPill(text: String, icon: ImageVector, modifier: Modifier = 
 @Composable
 private fun DashboardStatCard(stat: DashboardStat, modifier: Modifier = Modifier) {
   val dark = isSystemInDarkTheme()
-  MohamyCard(modifier = modifier.aspectRatio(1.06f)) {
-    Column(
-      verticalArrangement = Arrangement.spacedBy(14.dp),
-      modifier = Modifier.fillMaxSize()
+  MohamyCard(modifier = modifier) {
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
       Box(
         modifier =
-          Modifier.size(MohamyDimens.iconContainer)
+          Modifier.size(40.dp)
             .background(stat.accent.copy(alpha = if (dark) 0.14f else 0.18f), androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
       ) {
-        Icon(stat.icon, contentDescription = null, tint = stat.accent)
+        Icon(stat.icon, contentDescription = null, tint = stat.accent, modifier = Modifier.size(22.dp))
       }
-      Text(
-        text = stat.value,
-        style = MaterialTheme.typography.displayMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.ExtraBold
-      )
-      Text(
-        text = stat.title,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-      )
+      Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+          text = stat.value,
+          style = MaterialTheme.typography.headlineSmall,
+          color = MaterialTheme.colorScheme.onSurface,
+          fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+          text = stat.title,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
     }
   }
 }
@@ -590,19 +593,19 @@ private fun DashboardInfoCard(
   val dark = isSystemInDarkTheme()
   MohamyCard(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
     Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(14.dp),
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       Box(
         modifier =
-          Modifier.size(MohamyDimens.iconContainer)
+          Modifier.size(40.dp)
             .background(accent.copy(alpha = if (dark) 0.14f else 0.18f), androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
       ) {
-        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
       }
-      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
           text = title,
           style = MaterialTheme.typography.titleSmall,
@@ -612,7 +615,9 @@ private fun DashboardInfoCard(
         Text(
           text = subtitle,
           style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         Text(
           text = meta,

@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.Client
 import com.example.ui.theme.MohamyDimens
 import com.example.ui.theme.MohamyGold
@@ -51,20 +52,20 @@ fun ClientCard(
     modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
     shape = RoundedCornerShape(MohamyDimens.cardRadius),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     border = androidx.compose.foundation.BorderStroke(
       1.dp,
-      MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)
+      MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
     )
   ) {
-    Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(
           modifier =
             Modifier
-              .size(52.dp)
+              .size(48.dp)
               .background(MohamyGold.copy(alpha = 0.12f), CircleShape)
-              .border(1.dp, MohamyGold.copy(alpha = 0.36f), CircleShape),
+              .border(1.dp, MohamyGold.copy(alpha = 0.28f), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Text(
@@ -74,7 +75,7 @@ fun ClientCard(
             fontWeight = FontWeight.ExtraBold
           )
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
           Text(
             text = client.name,
             style = MaterialTheme.typography.titleMedium,
@@ -86,7 +87,7 @@ fun ClientCard(
               imageVector = Icons.Default.Phone,
               contentDescription = null,
               tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(15.dp)
+              modifier = Modifier.size(14.dp)
             )
             Text(
               text = client.phone.ifBlank { "لا يوجد رقم هاتف" },
@@ -112,10 +113,10 @@ fun ClientCard(
             imageVector = Icons.Default.WorkspacePremium,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(15.dp)
           )
           Text(
-            text = "عدد القضايا: $caseCount",
+            text = "قضايا: $caseCount",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
           )
@@ -127,7 +128,8 @@ fun ClientCard(
           text = client.notes,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           style = MaterialTheme.typography.bodySmall,
-          maxLines = 2
+          maxLines = 2,
+          lineHeight = 18.sp
         )
       }
     }

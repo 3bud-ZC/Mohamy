@@ -32,12 +32,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AppViewModel
@@ -47,9 +48,10 @@ import com.example.data.LegalCase
 import com.example.data.LegalTemplate
 import com.example.data.Screen
 import com.example.ui.openCaseFile
-import com.example.ui.theme.LegalGoldSecondary
-import com.example.ui.theme.LegalNavyPrimary
 import com.example.ui.theme.legalScreenBackground
+import com.example.ui.theme.MohamyGold
+import com.example.ui.theme.MohamyGoldBright
+import com.example.ui.theme.MohamySurfaceRaised
 
 enum class AssistantRole { USER, ASSISTANT, SYSTEM }
 
@@ -96,15 +98,15 @@ fun SmartAssistantScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(64.dp))
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MohamySurfaceRaised, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
-            Text("المساعد الذكي غير متاح", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+            Text("المساعد الذكي غير متاح", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MohamySurfaceRaised)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("لا توجد قضايا مسجلة. أضف قضية أولاً للبدء.", color = Color.Gray, fontSize = 14.sp)
+            Text("لا توجد قضايا مسجلة. أضف قضية أولاً للبدء.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = { viewModel.navigateTo(Screen.CaseAddEdit()) },
-                colors = ButtonDefaults.buttonColors(containerColor = LegalNavyPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = MohamySurfaceRaised),
                 shape = RoundedCornerShape(12.dp)
             ) { Text("إضافة قضية جديدة", modifier = Modifier.padding(8.dp)) }
         }
@@ -117,7 +119,7 @@ fun SmartAssistantScreen(
         mutableStateListOf(
             AssistantChatMessage(
                 role = AssistantRole.SYSTEM,
-                text = "مرحباً! أنا المساعد الذكي لقضية \"${selectedCase.title}\".\nيمكنني مساعدتك في تلخيص القضية، كتابة المسودات، البحث في المستندات، والمزيد."
+                text = "مرحباً! أنا المساعد الذكي لقضية \"${selectedCase.title}\".\n• أعمل محلياً على الجهاز دون إرسال الملفات أو البيانات الأصلية.\n• يمكنني تلخيص القضية، كتابة المسودات، البحث في المستندات، وتجهيز الجلسة."
             )
         )
     }
@@ -172,18 +174,34 @@ fun SmartAssistantScreen(
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .background(LegalNavyPrimary.copy(alpha = 0.1f), CircleShape),
+                            .background(MohamySurfaceRaised.copy(alpha = 0.1f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LegalNavyPrimary)
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MohamySurfaceRaised)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("المساعد الذكي", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LegalNavyPrimary)
+                        Text("المساعد الذكي", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MohamySurfaceRaised)
                         Text(
                             if (viewModel.hasConfiguredCloudAssistant) "متصل بالسحابة (اختياري)" else "محلي بالكامل (آمن وموثوق)",
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (viewModel.hasConfiguredCloudAssistant) {
+                            MohamyGold.copy(alpha = 0.18f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        }
+                    ) {
+                        Text(
+                            text = if (viewModel.hasConfiguredCloudAssistant) "محلي + سحابي" else "محلي فقط",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (viewModel.hasConfiguredCloudAssistant) MohamyGold else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
@@ -200,14 +218,14 @@ fun SmartAssistantScreen(
                         value = selectedCase.title,
                         onValueChange = {},
                         readOnly = true,
-                        leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null, tint = LegalNavyPrimary) },
+                        leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null, tint = MohamySurfaceRaised) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isCaseDropdownExpanded) },
                         modifier = Modifier
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             .fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = LegalNavyPrimary,
-                            unfocusedBorderColor = LegalNavyPrimary.copy(alpha = 0.5f)
+                            focusedBorderColor = MohamySurfaceRaised,
+                            unfocusedBorderColor = MohamySurfaceRaised.copy(alpha = 0.5f)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
@@ -220,7 +238,7 @@ fun SmartAssistantScreen(
                                 text = { 
                                     Column {
                                         Text(legalCase.title, fontWeight = FontWeight.Bold)
-                                        Text("الجاهزية: ${viewModel.caseReadinessScore(legalCase)}%", fontSize = 10.sp, color = Color.Gray)
+                                        Text("الجاهزية: ${viewModel.caseReadinessScore(legalCase)}%", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 },
                                 onClick = {
@@ -260,8 +278,8 @@ fun SmartAssistantScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = LegalNavyPrimary, strokeWidth = 2.dp)
-                                    Text("جاري التفكير...", fontSize = 12.sp, color = Color.Gray)
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MohamySurfaceRaised, strokeWidth = 2.dp)
+                                    Text("جاري التفكير...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -281,7 +299,7 @@ fun SmartAssistantScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, LegalGoldSecondary.copy(alpha = 0.5f)),
+                border = BorderStroke(1.dp, MohamyGold.copy(alpha = 0.5f)),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -290,7 +308,7 @@ fun SmartAssistantScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("قوالب مقترحة", fontWeight = FontWeight.Bold, color = LegalNavyPrimary, fontSize = 12.sp)
+                        Text("قوالب مقترحة", fontWeight = FontWeight.Bold, color = MohamySurfaceRaised, fontSize = 12.sp)
                         IconButton(onClick = { suggestedTemplates = emptyList() }, modifier = Modifier.size(24.dp)) {
                             Icon(Icons.Default.Close, contentDescription = "إغلاق", modifier = Modifier.size(16.dp))
                         }
@@ -305,9 +323,9 @@ fun SmartAssistantScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Description, contentDescription = null, tint = LegalNavyPrimary, modifier = Modifier.size(18.dp))
-                            Text(template.title, fontSize = 13.sp, color = LegalNavyPrimary, modifier = Modifier.weight(1f))
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = LegalGoldSecondary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Description, contentDescription = null, tint = MohamySurfaceRaised, modifier = Modifier.size(18.dp))
+                            Text(template.title, fontSize = 13.sp, color = MohamySurfaceRaised, modifier = Modifier.weight(1f))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = MohamyGold, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -315,17 +333,15 @@ fun SmartAssistantScreen(
         }
 
         // --- 3. Quick Suggestions Row ---
-        val prompts = listOf(
-            "وضع القضية",
-            "تحديث للعميل",
-            "أضف مهمة",
-            "إضافة جلسة",
-            "كم باقي أتعاب",
-            "لخص القضية",
-            "ابحث داخل الملفات",
-            "تجهيز الجلسة القادمة",
-            "المستندات الناقصة",
-            "مسودة مذكرة"
+        val promptGroups = listOf(
+            "وضع القضية" to Icons.Default.QueryStats,
+            "لخص القضية" to Icons.Default.Summarize,
+            "النواقص" to Icons.Default.RuleFolder,
+            "تجهيز الجلسة" to Icons.Default.Event,
+            "مسودة مذكرة" to Icons.Default.EditNote,
+            "تحديث للعميل" to Icons.Default.Forum,
+            "كم باقي أتعاب" to Icons.Default.AttachMoney,
+            "ابحث داخل الملفات" to Icons.Default.Search
         )
         Row(
             modifier = Modifier
@@ -334,19 +350,25 @@ fun SmartAssistantScreen(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            prompts.forEach { prompt ->
+            promptGroups.forEach { (label, icon) ->
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f)),
-                    modifier = Modifier.clickable { submitPrompt(prompt) }
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.clickable { submitPrompt(label) }
                 ) {
-                    Text(
-                        text = prompt,
-                        fontSize = 12.sp,
-                        color = LegalNavyPrimary,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(icon, contentDescription = null, tint = MohamySurfaceRaised, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = label,
+                            fontSize = 12.sp,
+                            color = MohamySurfaceRaised
+                        )
+                    }
                 }
             }
         }
@@ -381,7 +403,7 @@ fun SmartAssistantScreen(
                         .size(40.dp)
                         .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 ) {
-                    Icon(Icons.Default.Mic, contentDescription = "تحدث", tint = LegalNavyPrimary)
+                    Icon(Icons.Default.Mic, contentDescription = "تحدث", tint = MohamySurfaceRaised)
                 }
 
                 OutlinedTextField(
@@ -393,8 +415,8 @@ fun SmartAssistantScreen(
                     placeholder = { Text("اسألني عن القضية...", fontSize = 14.sp) },
                     shape = RoundedCornerShape(24.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LegalNavyPrimary,
-                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
+                        focusedBorderColor = MohamySurfaceRaised,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     ),
                     maxLines = 4
                 )
@@ -403,7 +425,7 @@ fun SmartAssistantScreen(
                     onClick = { submitPrompt(assistantInput) },
                     modifier = Modifier
                         .size(40.dp)
-                        .background(LegalNavyPrimary, CircleShape),
+                        .background(MohamySurfaceRaised, CircleShape),
                     enabled = assistantInput.isNotBlank() && !viewModel.isAssistantLoading
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "إرسال", tint = Color.White, modifier = Modifier.padding(start = 4.dp))
@@ -427,12 +449,117 @@ private fun buildSuggestedTemplates(
 }
 
 @Composable
+private fun FormattedAssistantText(text: String, modifier: Modifier = Modifier) {
+    val primary = MaterialTheme.colorScheme.primary
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        text.lines().forEach { rawLine ->
+            val line = rawLine.trim()
+            if (line.isBlank()) return@forEach
+            when {
+                line.startsWith("#") -> {
+                    val clean = line.trimStart('#').trim()
+                    Text(
+                        text = clean,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = onSurface
+                    )
+                }
+                line.startsWith("---") -> {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
+                line.startsWith("•") || line.startsWith("-") || line.startsWith("*") -> {
+                    val clean = line.trimStart('•', '-', '*').trim()
+                    val bulletText = buildAnnotatedString {
+                        withStyle(SpanStyle(color = primary, fontWeight = FontWeight.Bold)) {
+                            append("•  ")
+                        }
+                        appendStyledBullet(clean, primary, onSurface)
+                    }
+                    Text(
+                        text = bulletText,
+                        fontSize = 13.5.sp,
+                        lineHeight = 20.sp,
+                        color = onSurface
+                    )
+                }
+                line.matches(Regex("^\\d+[.\\)]\\s+.*")) -> {
+                    val bulletText = buildAnnotatedString {
+                        withStyle(SpanStyle(color = primary, fontWeight = FontWeight.Bold)) {
+                            append(line.substringBefore(" "))
+                            append("  ")
+                        }
+                        appendStyledBullet(line.substringAfter(" ").trim(), primary, onSurface)
+                    }
+                    Text(
+                        text = bulletText,
+                        fontSize = 13.5.sp,
+                        lineHeight = 20.sp,
+                        color = onSurface
+                    )
+                }
+                line.startsWith("💡") || line.startsWith("⚠️") || line.startsWith("📊") || line.startsWith("📋") || line.startsWith("📝") -> {
+                    Text(
+                        text = line,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = onSurface,
+                        lineHeight = 20.sp
+                    )
+                }
+                else -> {
+                    val normalText = buildAnnotatedString {
+                        appendStyledBullet(line, primary, onSurface)
+                    }
+                    Text(
+                        text = normalText,
+                        fontSize = 13.5.sp,
+                        lineHeight = 20.sp,
+                        color = onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendStyledBullet(
+    line: String,
+    accent: Color,
+    default: Color
+) {
+    val regex = Regex("\\*\\*(.+?)\\*\\*")
+    var cursor = 0
+    regex.findAll(line).forEach { match ->
+        if (match.range.first > cursor) {
+            withStyle(SpanStyle(color = default)) {
+                append(line.substring(cursor, match.range.first))
+            }
+        }
+        withStyle(SpanStyle(color = accent, fontWeight = FontWeight.Bold)) {
+            append(match.groupValues[1])
+        }
+        cursor = match.range.last + 1
+    }
+    if (cursor < line.length) {
+        withStyle(SpanStyle(color = default)) {
+            append(line.substring(cursor))
+        }
+    }
+}
+
+@Composable
 private fun ChatBubble(message: AssistantChatMessage, viewModel: AppViewModel, selectedCase: LegalCase, context: Context) {
     val isUser = message.role == AssistantRole.USER
     val isSystem = message.role == AssistantRole.SYSTEM
     
     val bubbleColor = when {
-        isUser -> LegalNavyPrimary
+        isUser -> MohamySurfaceRaised
         isSystem -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.5f)
         else -> MaterialTheme.colorScheme.surface
     }
@@ -457,7 +584,7 @@ private fun ChatBubble(message: AssistantChatMessage, viewModel: AppViewModel, s
                         Icon(
                             if (isSystem) Icons.Default.Info else Icons.Default.AutoAwesome,
                             contentDescription = null,
-                            tint = if (isSystem) Color.Gray else LegalGoldSecondary,
+                            tint = if (isSystem) MaterialTheme.colorScheme.onSurfaceVariant else MohamyGold,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -465,17 +592,21 @@ private fun ChatBubble(message: AssistantChatMessage, viewModel: AppViewModel, s
                             text = if (isSystem) "توجيه" else "المساعد الذكي",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSystem) Color.Gray else LegalGoldSecondary
+                            color = if (isSystem) MaterialTheme.colorScheme.onSurfaceVariant else MohamyGold
                         )
                     }
                 }
                 
-                Text(
-                    text = message.text,
-                    fontSize = 14.sp,
-                    lineHeight = 22.sp,
-                    color = textColor
-                )
+                if (isUser) {
+                    Text(
+                        text = message.text,
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp,
+                        color = textColor
+                    )
+                } else {
+                    FormattedAssistantText(text = message.text)
+                }
                 
                 if (message.role == AssistantRole.ASSISTANT) {
                     Spacer(modifier = Modifier.height(10.dp))
@@ -491,7 +622,7 @@ private fun ChatBubble(message: AssistantChatMessage, viewModel: AppViewModel, s
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         }
                         IconButton(
                             onClick = {
@@ -500,7 +631,7 @@ private fun ChatBubble(message: AssistantChatMessage, viewModel: AppViewModel, s
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.BookmarkBorder, contentDescription = "حفظ", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.BookmarkBorder, contentDescription = "حفظ", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         }
                     }
                 }

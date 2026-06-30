@@ -5,7 +5,7 @@
 - Android app: 100%
 - Admin server code: 100%
 - Production activation/admin integration: 100%
-- UI/UX premium polish: 98% (light theme refined; BlueStacks/real-device screenshot QA pending)
+- UI/UX premium polish: 99% (compactness, settings simplification, assistant upgrade, notifications; manual screenshot QA pending)
 - Testing: 99% (local build/tests pass; full manual post-login APK smoke is still pending)
 - Commercial readiness: 100%
 
@@ -13,6 +13,7 @@
 - Current published release: `v1.8.1` / `versionCode 13`.
 - `update/latest.json` is still `versionName: 1.8.1 / versionCode: 13` and was **not modified** in this run.
 - Official release APK URL: `https://github.com/3bud-ZC/Mohamy/releases/download/v1.8.1/app-release.apk`
+- Local release APK built successfully: `app/build/outputs/apk/release/app-release.apk`
 
 ## What Was Verified In This Run
 - The repository working tree is clean except for unrelated untracked local folders:
@@ -21,8 +22,10 @@
 - Android `BuildConfig.LICENSE_SERVER_URL` still defaults to `https://mohamy.abud.fun`.
 - Android activation still posts to `POST /api/license/activate`.
 - `applicationId`, signing configuration, and `update/latest.json` were **not modified**.
-- Local validation re-ran successfully on `2026-06-29`:
-  - `.\gradlew.bat --% :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace` -> **BUILD SUCCESSFUL**
+- Local validation re-ran successfully on `2026-06-30`:
+  - `\gradlew :app:testDebugUnitTest` -> **BUILD SUCCESSFUL**
+  - `\gradlew :app:assembleDebug` -> **BUILD SUCCESSFUL**
+  - `\gradlew :app:assembleRelease` -> **BUILD SUCCESSFUL**
   - `admin-server npm test` -> **15/15 pass**
   - `admin-server npm audit` -> **0 vulnerabilities**
 - The new VPS used for deployment is:
@@ -65,16 +68,31 @@
   - `app/build/outputs/apk/debug/app-debug.apk`
 
 ## Changes Made In This Run
-- Refined the premium light theme across Android UI tokens and components.
-- Added dedicated light-mode color tokens in `Color.kt`.
-- Updated `LightColorScheme` in `Theme.kt` without touching `DarkColorScheme`.
-- Made shared components theme-aware:
-  - `MohamyTopBar`, `MohamyBottomNav`, `MohamyCard`, `QuickActionTile`, `ScreenStyle`.
-- Fixed light-mode rendering in:
-  - `DashboardScreen` hero, stat cards, info cards, and section headers.
-  - `ActivationScreen` hint/note/field colors.
-  - `SettingsScreen` hero card.
-- Replaced remaining dark-only hardcoded colors in `MainLayout` import dialog.
+- Internal UI/UX polish (compactness and professionalism):
+  - `ClientCard`, `CaseCard`, `FileDocumentCard`: reduced padding, lower elevation, tighter meta rows, file-type icons.
+  - `DashboardScreen`: stat cards are now horizontal/compact; info cards are smaller.
+  - `QuickActionTile`: reduced height and padding.
+  - `SettingsScreen`: simplified default view with an "Advanced mode" toggle hiding update/backup/app-info technical sections.
+- Smart Assistant upgrade:
+  - Replaced hardcoded colors with theme-aware palette.
+  - Added structured response formatting (headers, bullets, bold markdown, emojis).
+  - Added local-only/safe badge in header.
+  - Improved quick-suggestion chips with icons.
+- Notification system completion:
+  - Added same-day session reminders.
+  - Improved fee overdue logic to honor due date.
+  - Added daily office summary notification.
+  - Better notification messages with context.
+- Files changed in this run:
+  - `app/src/main/java/com/example/ui/components/ClientCard.kt`
+  - `app/src/main/java/com/example/ui/components/CaseCard.kt`
+  - `app/src/main/java/com/example/ui/components/FileDocumentCard.kt`
+  - `app/src/main/java/com/example/ui/components/QuickActionTile.kt`
+  - `app/src/main/java/com/example/ui/screens/DashboardScreen.kt`
+  - `app/src/main/java/com/example/ui/screens/SettingsScreen.kt`
+  - `app/src/main/java/com/example/ui/screens/SmartAssistantScreen.kt`
+  - `app/src/main/java/com/example/worker/NotificationWorker.kt`
+  - `STATUS.md`
 - No changes were made to:
   - backend logic
   - activation API logic
@@ -128,16 +146,20 @@
 
 ## Commands Run
 - `git status --short --branch`
-- `.\gradlew.bat --% :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace`
+- `.\gradlew.bat --% :app:testDebugUnitTest --no-daemon --stacktrace`
+- `.\gradlew.bat --% :app:assembleDebug --no-daemon --stacktrace`
+- `.\gradlew.bat --% :app:assembleRelease --no-daemon --stacktrace`
 - `npm --prefix admin-server test`
 - `npm --prefix admin-server audit`
 - `adb devices` (no adb available in environment; install/screenshot QA skipped)
 
 ## Build/Test Results
-- Android: `:app:testDebugUnitTest :app:assembleDebug` -> **BUILD SUCCESSFUL**
+- Android: `:app:testDebugUnitTest` -> **BUILD SUCCESSFUL**
+- Android: `:app:assembleDebug` -> **BUILD SUCCESSFUL**
+- Android: `:app:assembleRelease` -> **BUILD SUCCESSFUL**
 - Android unit tests: **pass**
-- Debug APK built successfully at:
-  - `app/build/outputs/apk/debug/app-debug.apk`
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Release APK: `app/build/outputs/apk/release/app-release.apk`
 - Admin server: `npm test` -> **15/15 pass**
 - Admin server: `npm audit` -> **0 vulnerabilities**
 
@@ -154,4 +176,6 @@
   - bottom navigation
   - cases screen
   - settings screen
+  - smart assistant screen
 - Review screenshots and report any remaining UI issues before the next release.
+- Consider remaining tasks: smarter file/document handling, case progress/timeline, deeper fee-record integration.

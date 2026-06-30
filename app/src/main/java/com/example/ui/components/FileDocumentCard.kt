@@ -15,7 +15,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderCopy
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
@@ -44,6 +46,26 @@ private fun fileExtractionTone(status: String): MohamyBadgeTone {
     normalized.contains("غير مكتمل") || normalized.contains("فشل") -> MohamyBadgeTone.Danger
     normalized.isBlank() -> MohamyBadgeTone.Neutral
     else -> MohamyBadgeTone.Gold
+  }
+}
+
+private fun extractionLabel(status: String): String =
+  when {
+    status.trim().contains("نجاح") -> "مفهرس"
+    status.trim().contains("جاهز") -> "مفهرس"
+    status.trim().contains("OCR") -> "OCR"
+    status.trim().contains("فشل") -> "فشل الفهرسة"
+    status.isBlank() -> "محفوظ"
+    else -> status
+  }
+
+private fun fileIcon(fileName: String): androidx.compose.ui.graphics.vector.ImageVector {
+  val lower = fileName.lowercase()
+  return when {
+    lower.endsWith(".pdf") -> Icons.Default.PictureAsPdf
+    lower.endsWith(".doc") || lower.endsWith(".docx") -> Icons.Default.Description
+    lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") -> Icons.Default.Image
+    else -> Icons.Default.FolderCopy
   }
 }
 
@@ -81,10 +103,9 @@ fun FileDocumentCard(
 ) {
   val uploadLabel =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ENGLISH).format(Date(file.uploadDate))
-  val searchReady = file.normalizedSearchIndex.isNotBlank() || file.extractedText.isNotBlank()
 
   MohamyCard(modifier = modifier.clickable(onClick = onClick)) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -93,19 +114,19 @@ fun FileDocumentCard(
         androidx.compose.foundation.layout.Box(
           modifier =
             Modifier
-              .size(52.dp)
+              .size(48.dp)
               .background(MohamyGold.copy(alpha = 0.12f), CircleShape)
-              .border(1.dp, MohamyGold.copy(alpha = 0.36f), CircleShape),
+              .border(1.dp, MohamyGold.copy(alpha = 0.28f), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Icon(
-            imageVector = Icons.Default.FolderCopy,
+            imageVector = fileIcon(file.fileName),
             contentDescription = null,
             tint = MohamyGold,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
           )
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
           Text(
             text = file.fileName,
             style = MaterialTheme.typography.titleMedium,
@@ -117,7 +138,7 @@ fun FileDocumentCard(
           Text(
             text = file.caseTitle.ifBlank { "قضية غير محددة" },
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -125,34 +146,28 @@ fun FileDocumentCard(
         }
         Column(
           horizontalAlignment = Alignment.End,
-          verticalArrangement = Arrangement.spacedBy(8.dp)
+          verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
           MohamyStatusBadge(text = file.docType.ifBlank { "مستند" }, tone = MohamyBadgeTone.Gold)
           MohamyStatusBadge(
-            text = file.extractionStatus.ifBlank { "محفوظ" },
+            text = extractionLabel(file.extractionStatus),
             tone = fileExtractionTone(file.extractionStatus)
           )
         }
       }
 
-      if (file.clientName.isNotBlank()) {
-        FileMetaLine(icon = Icons.Default.Person, text = "الموكل: ${file.clientName}")
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        if (file.clientName.isNotBlank()) {
+          FileMetaLine(icon = Icons.Default.Person, text = file.clientName, modifier = Modifier.weight(1f))
+        }
+        FileMetaLine(icon = Icons.Default.Storage, text = formatFileSize(file.fileLength))
       }
 
-      FileMetaLine(icon = Icons.Default.Storage, text = "الحجم: ${formatFileSize(file.fileLength)}")
       FileMetaLine(icon = Icons.Default.CalendarToday, text = "تاريخ الرفع: $uploadLabel")
-
-      if (searchReady) {
-        FileMetaLine(
-          icon = Icons.Default.Search,
-          text =
-            if (file.extractedText.isNotBlank()) {
-              "مفهرس محلياً للبحث داخل النص"
-            } else {
-              "جاهز للبحث عبر بيانات المستند"
-            }
-        )
-      }
 
       if (file.extractedText.isNotBlank()) {
         Text(
@@ -160,10 +175,9 @@ fun FileDocumentCard(
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 2,
-          overflow = TextOverflow.Ellipsis
+          overflow = TextOverflow.Ellipsis,
+          lineHeight = 18.sp
         )
-      } else {
-        FileMetaLine(icon = Icons.Default.Description, text = "هوية المستند محفوظة محلياً داخل الأرشيف")
       }
 
       footer?.let {

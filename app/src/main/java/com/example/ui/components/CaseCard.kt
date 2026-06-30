@@ -83,30 +83,30 @@ fun CaseCard(
     modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
     shape = RoundedCornerShape(MohamyDimens.cardRadius),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     border = androidx.compose.foundation.BorderStroke(
       1.dp,
-      MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)
+      MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
     )
   ) {
-    Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(
           modifier =
             Modifier
-              .size(52.dp)
+              .size(48.dp)
               .background(MohamyGold.copy(alpha = 0.12f), CircleShape)
-              .border(1.dp, MohamyGold.copy(alpha = 0.36f), CircleShape),
+              .border(1.dp, MohamyGold.copy(alpha = 0.28f), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Icon(
             imageVector = Icons.Default.Gavel,
             contentDescription = null,
             tint = MohamyGold,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
           )
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Text(
             text = legalCase.title,
             style = MaterialTheme.typography.titleMedium,
@@ -117,12 +117,12 @@ fun CaseCard(
             text = "رقم ${legalCase.caseNumber} لسنة ${legalCase.caseYear}",
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 13.sp
+            fontSize = 12.sp
           )
         }
         Column(
           horizontalAlignment = Alignment.End,
-          verticalArrangement = Arrangement.spacedBy(8.dp)
+          verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
           MohamyStatusBadge(text = legalCase.status, tone = caseStatusTone(legalCase.status))
           MohamyStatusBadge(text = legalCase.priority, tone = casePriorityTone(legalCase.priority))
@@ -135,7 +135,7 @@ fun CaseCard(
             imageVector = Icons.Default.Person,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(15.dp)
           )
         },
         text = "الموكل: ${legalCase.clientName.ifBlank { "غير محدد" }}"
@@ -148,7 +148,7 @@ fun CaseCard(
               imageVector = Icons.Default.AccountBalance,
               contentDescription = null,
               tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(16.dp)
+              modifier = Modifier.size(15.dp)
             )
           },
           text = "المحكمة: ${legalCase.courtName}"
@@ -162,18 +162,18 @@ fun CaseCard(
               imageVector = Icons.Default.CalendarToday,
               contentDescription = null,
               tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(16.dp)
+              modifier = Modifier.size(15.dp)
             )
           },
           text = "الجلسة القادمة: ${legalCase.nextSessionDate}"
         )
       }
 
-      Spacer(modifier = Modifier.height(2.dp))
       Text(
         text = "جاهزية الملف: $readinessScore% - $readinessLabel",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodySmall
+        style = MaterialTheme.typography.bodySmall,
+        lineHeight = 18.sp
       )
     }
   }
