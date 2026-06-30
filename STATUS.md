@@ -82,6 +82,7 @@
     - `الحقوق والخصوصية` - rights dialog, privacy/about dialog, support link, local-first privacy bullets.
     - `أدوات متقدمة` - demo data, welcome card, technical updates (advanced mode only).
     - Advanced mode retained only for technical/demo tools; normal user actions are always visible.
+- App launcher icon replaced with the new `MohamyPhone icon.png` in all mipmap densities; adaptive-icon XML removed so the static icon is used everywhere.
 - Smart Assistant upgrade:
   - Replaced hardcoded colors with theme-aware palette.
   - Added structured response formatting (headers, bullets, bold markdown, emojis).
