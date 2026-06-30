@@ -10,9 +10,9 @@
 - Commercial readiness: 100%
 
 ## Current Release State
-- Current published release: `v1.8.1` / `versionCode 13`.
-- `update/latest.json` is still `versionName: 1.8.1 / versionCode: 13` and was **not modified** in this run.
-- Official release APK URL: `https://github.com/3bud-ZC/Mohamy/releases/download/v1.8.1/app-release.apk`
+- Current published release: `v1.8.2` / `versionCode 14`.
+- `update/latest.json` updated to `versionName: 1.8.2 / versionCode: 14`.
+- Official release APK URL: `https://github.com/3bud-ZC/Mohamy/releases/download/v1.8.2/app-release.apk`
 - Local release APK built successfully: `app/build/outputs/apk/release/app-release.apk`
 
 ## What Was Verified In This Run
@@ -21,12 +21,14 @@
   - `temp/`
 - Android `BuildConfig.LICENSE_SERVER_URL` still defaults to `https://mohamy.abud.fun`.
 - Android activation still posts to `POST /api/license/activate`.
-- `applicationId`, signing configuration, and `update/latest.json` were **not modified**.
+- `applicationId` and signing configuration were **not modified**.
+- `update/latest.json` was updated by the release workflow to point to `v1.8.2`.
 - Local validation re-ran successfully on `2026-06-30`:
   - `\gradlew :app:compileDebugKotlin` -> **BUILD SUCCESSFUL** (SettingsScreen reorganized)
   - `\gradlew :app:testDebugUnitTest` -> **BUILD SUCCESSFUL**
   - `\gradlew :app:assembleDebug` -> **BUILD SUCCESSFUL**
-  - `\gradlew :app:assembleRelease` -> **BUILD SUCCESSFUL**
+  - `\gradlew :app:assembleRelease` -> **BUILD SUCCESSFUL** (v1.8.2)
+  - GitHub Actions `Publish Android Release` -> **release published** with APK attached
   - `admin-server npm test` -> **15/15 pass**
   - `admin-server npm audit` -> **0 vulnerabilities**
 - The new VPS used for deployment is:
